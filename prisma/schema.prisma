@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TRAINEE
+  TRAINER
+}
+
+enum ExerciseType {
+  PUSHUP
+  SQUAT
+  SITUP
+  JUMPING_JACK
+}
+
+enum AttemptKind {
+  CHALLENGE
+  COMPETITION
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  displayName   String?
+  role          Role?
+  isAdmin       Boolean   @default(false)
+  onboardedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  accounts            Account[]
+  challengesCreated   Challenge[]
+  completions         ChallengeCompletion[]
+  competitionsCreated Competition[]
+  entries             CompetitionEntry[]
+  attempts            CompetitionAttempt[]
+  attemptTokens       AttemptToken[]
+  communitiesCreated  Community[]
+  memberships         Membership[]
+  posts               Post[]
+  comments            Comment[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Challenge {
+  id               String       @id @default(cuid())
+  title            String
+  description      String
+  exercise         ExerciseType
+  targetReps       Int
+  timeLimitSeconds Int
+  createdById      String
+  createdAt        DateTime     @default(now())
+
+  createdBy   User                  @relation(fields: [createdById], references: [id])
+  completions ChallengeCompletion[]
+
+  @@index([createdById])
+  @@index([createdAt(sort: Desc)])
+}
+
+model ChallengeCompletion {
+  id              String   @id @default(cuid())
+  challengeId     String
+  userId          String
+  reps            Int
+  durationSeconds Int
+  completedAt     DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([userId, completedAt(sort: Desc)])
+}
+
+model Competition {
+  id          String       @id @default(cuid())
+  title       String
+  description String
+  exercise    ExerciseType
+  startsAt    DateTime
+  endsAt      DateTime
+  createdById String
+  createdAt   DateTime     @default(now())
+
+  createdBy User                 @relation(fields: [createdById], references: [id])
+  entries   CompetitionEntry[]
+  attempts  CompetitionAttempt[]
+
+  @@index([startsAt, endsAt])
+}
+
+model CompetitionEntry {
+  id            String    @id @default(cuid())
+  competitionId String
+  userId        String
+  joinedAt      DateTime  @default(now())
+  bestReps      Int       @default(0)
+  bestAttemptAt DateTime?
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, userId])
+  @@index([competitionId, bestReps(sort: Desc), bestAttemptAt])
+}
+
+model CompetitionAttempt {
+  id              String   @id @default(cuid())
+  competitionId   String
+  userId          String
+  reps            Int
+  durationSeconds Int
+  createdAt       DateTime @default(now())
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([competitionId, userId, createdAt])
+}
+
+model AttemptToken {
+  id            String      @id @default(cuid())
+  userId        String
+  kind          AttemptKind
+  challengeId   String?
+  competitionId String?
+  issuedAt      DateTime    @default(now())
+  expiresAt     DateTime
+  consumedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedAt(sort: Desc)])
+}
+
+model Community {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  memberships Membership[]
+  posts       Post[]
+}
+
+model Membership {
+  id          String   @id @default(cuid())
+  communityId String
+  userId      String
+  joinedAt    DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([userId])
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  communityId String
+  authorId    String
+  title       String
+  body        String
+  createdAt   DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+  comments  Comment[]
+
+  @@index([communityId, createdAt(sort: Desc)])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  parentId  String?
+  body      String
+  createdAt DateTime @default(now())
+
+  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author  User      @relation(fields: [authorId], references: [id])
+  parent  Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("Replies")
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+}

@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: traincore-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: traincore
+      POSTGRES_PASSWORD: traincore
+      POSTGRES_DB: traincore
+    ports:
+      - "5433:5432"
+    volumes:
+      - traincore_pgdata:/var/lib/postgresql/data
+
+volumes:
+  traincore_pgdata:
