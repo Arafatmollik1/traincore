@@ -14,11 +14,11 @@ export const TOKEN_GRACE_SECONDS = 60;
 const MAX_TOKENS_PER_HOUR = 30;
 
 export function assertPlausible(
-  exercise: ExerciseType,
+  maxRpm: number,
   reps: number,
   elapsedSeconds: number,
 ) {
-  const cap = Math.ceil((MAX_RPM[exercise] * Math.max(elapsedSeconds, 10)) / 60) + 5;
+  const cap = Math.ceil((maxRpm * Math.max(elapsedSeconds, 10)) / 60) + 5;
   if (reps > cap) {
     throw new AuthzError(422, "That rep count doesn't look humanly possible");
   }

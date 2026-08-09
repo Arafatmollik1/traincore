@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { EXERCISES } from "@/lib/exercises";
 import AttemptSession from "@/components/attempt/AttemptSession";
 
 export const metadata = { title: "Attempt" };
@@ -25,9 +26,14 @@ export default async function CompetitionAttemptPage({
   });
   if (!entry) redirect(`/competitions/${id}`);
 
+  const info = EXERCISES[competition.exercise];
+
   return (
     <AttemptSession
-      exercise={competition.exercise}
+      counterSpec={{ kind: "builtin", exercise: competition.exercise }}
+      label={info.label}
+      emoji={info.emoji}
+      description={info.description}
       timeLimitSeconds={competition.attemptTimeLimitSeconds}
       startEndpoint={`/api/competitions/${id}/attempts/start`}
       finishEndpoint={`/api/competitions/${id}/attempts/finish`}

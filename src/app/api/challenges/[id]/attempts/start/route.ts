@@ -13,6 +13,7 @@ export async function POST(
     const { id } = await params;
     const challenge = await prisma.challenge.findUnique({ where: { id } });
     if (!challenge) return jsonError(404, "Challenge not found");
+    if (challenge.archivedAt) return jsonError(410, "This challenge has been archived");
 
     const existing = await prisma.challengeCompletion.findUnique({
       where: { challengeId_userId: { challengeId: id, userId: user.id } },

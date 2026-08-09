@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # traincore project notes
 
-Free fitness PWA: challenges (admin-created, badge on ML-verified completion), competitions (admin-only, best-attempt leaderboard), text-only communities (open to all). No roles — every account is a plain user; the only special account is the admin (ADMIN_EMAIL). Live rep counting runs fully client-side (MediaPipe Pose Landmarker); only final rep counts reach the server.
+Free fitness PWA: challenges (user-created, cap 5 active per user via archive, badge on ML-verified completion; discovery = featured (admin-pinned) / trending (7-day completions) / search; share via public /c/[id] page), competitions (admin-only, best-attempt leaderboard), text-only communities (open to all), custom exercises (user-defined joint-angle counters built in /exercises/new with live camera calibration, cap 10/user). No roles — every account is a plain user; the only special account is the admin (ADMIN_EMAIL). Live rep counting runs fully client-side (MediaPipe Pose Landmarker); only final rep counts reach the server.
 
 ## Commands
 - `docker compose up -d` — Postgres 16 on **localhost:5433**

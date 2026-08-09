@@ -50,6 +50,7 @@ async function main() {
       exercise: "PUSHUP" as const,
       targetReps: 50,
       timeLimitSeconds: 300,
+      featuredAt: now,
     },
     {
       id: "seed-challenge-squat",
@@ -75,6 +76,48 @@ async function main() {
       create: { ...challenge, createdById: admin.id },
     });
   }
+
+  const armRaises = await prisma.customExercise.upsert({
+    where: { id: "seed-exercise-arm-raises" },
+    update: {},
+    create: {
+      id: "seed-exercise-arm-raises",
+      name: "Arm raises",
+      emoji: "🙌",
+      joint: "SHOULDER",
+      downAngle: 60,
+      upAngle: 150,
+      createdById: coach.id,
+    },
+  });
+  await prisma.challenge.upsert({
+    where: { id: "seed-challenge-arm-raises" },
+    update: {},
+    create: {
+      id: "seed-challenge-arm-raises",
+      title: "30 arm raises, no rest",
+      description:
+        "A community-made exercise: raise both arms overhead and back down. Thirty in three minutes.",
+      customExerciseId: armRaises.id,
+      targetReps: 30,
+      timeLimitSeconds: 180,
+      createdById: coach.id,
+    },
+  });
+  await prisma.challenge.upsert({
+    where: { id: "seed-challenge-archived" },
+    update: {},
+    create: {
+      id: "seed-challenge-archived",
+      title: "Old-school situp marathon",
+      description: "Retired challenge kept for the history books.",
+      exercise: "SITUP",
+      targetReps: 40,
+      timeLimitSeconds: 600,
+      archivedAt: now,
+      createdById: athlete.id,
+    },
+  });
 
   await prisma.competition.upsert({
     where: { id: "seed-comp-live" },

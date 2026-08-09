@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ExerciseType } from "@prisma/client";
-import { EXERCISES } from "@/lib/exercises";
-import { createRepCounter, type RepUpdate } from "@/ml/repCounter";
+import { createRepCounter, type CounterSpec, type RepUpdate } from "@/ml/repCounter";
 import { drawSkeleton, getPoseLandmarker } from "@/ml/pose";
 
 type Stage =
@@ -26,7 +24,10 @@ export type AttemptResult = {
 };
 
 type Props = {
-  exercise: ExerciseType;
+  counterSpec: CounterSpec;
+  label: string;
+  emoji: string;
+  description: string;
   timeLimitSeconds: number;
   targetReps?: number;
   startEndpoint: string;
@@ -36,7 +37,10 @@ type Props = {
 };
 
 export default function AttemptSession({
-  exercise,
+  counterSpec,
+  label,
+  emoji,
+  description,
   timeLimitSeconds,
   targetReps,
   startEndpoint,
@@ -44,13 +48,11 @@ export default function AttemptSession({
   backHref,
   backLabel,
 }: Props) {
-  const info = EXERCISES[exercise];
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
-  const counterRef = useRef(createRepCounter(exercise));
+  const counterRef = useRef(createRepCounter(counterSpec));
   const tokenRef = useRef<string | null>(null);
   const startedAtRef = useRef(0);
   const repsRef = useRef(0);
@@ -244,9 +246,9 @@ export default function AttemptSession({
 
         {stage === "ready" && (
           <Overlay>
-            <p className="text-4xl">{info.emoji}</p>
-            <h2 className="text-xl font-bold">{info.label}</h2>
-            <p className="max-w-xs text-center text-sm text-white/70">{info.description}</p>
+            <p className="text-4xl">{emoji}</p>
+            <h2 className="text-xl font-bold">{label}</h2>
+            <p className="max-w-xs text-center text-sm text-white/70">{description}</p>
             <p className="text-sm text-white/70">
               {targetReps ? `Target: ${targetReps} reps · ` : "As many reps as you can · "}
               {Math.floor(timeLimitSeconds / 60)}:{String(timeLimitSeconds % 60).padStart(2, "0")} limit

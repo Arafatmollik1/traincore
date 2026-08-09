@@ -4,7 +4,16 @@ import { prisma } from "@/lib/prisma";
 
 export const metadata = { title: "Sign in" };
 
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: PageProps<"/sign-in">) {
+  const { callbackUrl } = await searchParams;
+  // Only allow same-app relative paths as post-login destinations.
+  const destination =
+    typeof callbackUrl === "string" && /^\/(?!\/)/.test(callbackUrl)
+      ? callbackUrl
+      : "/challenges";
+
   // Only bounce to the app if the session's user still exists in the DB —
   // a stale cookie after a DB reset would otherwise cause a redirect loop.
   const session = await auth();
@@ -13,7 +22,7 @@ export default async function SignInPage() {
       where: { id: session.user.id },
       select: { id: true },
     });
-    if (exists) redirect("/challenges");
+    if (exists) redirect(destination);
   }
 
   const googleConfigured = Boolean(
@@ -34,7 +43,7 @@ export default async function SignInPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/challenges" });
+            await signIn("google", { redirectTo: destination });
           }}
         >
           <button

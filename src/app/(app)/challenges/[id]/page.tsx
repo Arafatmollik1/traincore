@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { EXERCISES } from "@/lib/exercises";
+import { challengeExerciseInfo } from "@/lib/exercises";
+import { MAX_ACTIVE_CHALLENGES } from "@/lib/limits";
 import { formatDuration, formatRelativeTime } from "@/lib/format";
+import ShareButton from "@/components/ShareButton";
 
 export const metadata = { title: "Challenge" };
 
@@ -24,6 +27,7 @@ export default async function ChallengeDetailPage({
       where: { id },
       include: {
         createdBy: { select: { id: true, displayName: true } },
+        customExercise: { select: { name: true, emoji: true, joint: true } },
         completions: {
           orderBy: { completedAt: "desc" },
           take: 10,
@@ -39,10 +43,32 @@ export default async function ChallengeDetailPage({
     (await prisma.challengeCompletion.findUnique({
       where: { challengeId_userId: { challengeId: id, userId } },
     }));
-  const canDelete = challenge.createdBy.id === userId || me?.isAdmin;
-  const info = EXERCISES[challenge.exercise];
+  const isCreator = challenge.createdBy.id === userId;
+  const isAdmin = Boolean(me?.isAdmin);
+  const archived = Boolean(challenge.archivedAt);
+  const featured = Boolean(challenge.featuredAt);
+  const info = challengeExerciseInfo(challenge);
 
-  async function deleteChallenge() {
+  async function toggleFeature() {
+    "use server";
+    const session = await auth();
+    if (!session?.user?.id) redirect("/sign-in");
+    const me = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isAdmin: true },
+    });
+    if (!me?.isAdmin) redirect(`/challenges/${id}`);
+    const target = await prisma.challenge.findUnique({ where: { id } });
+    if (!target) redirect("/challenges");
+    await prisma.challenge.update({
+      where: { id },
+      data: { featuredAt: target.featuredAt ? null : new Date() },
+    });
+    revalidatePath(`/challenges/${id}`);
+    revalidatePath("/challenges");
+  }
+
+  async function toggleArchive() {
     "use server";
     const session = await auth();
     if (!session?.user?.id) redirect("/sign-in");
@@ -55,24 +81,67 @@ export default async function ChallengeDetailPage({
     if (target.createdById !== session.user.id && !me?.isAdmin) {
       redirect(`/challenges/${id}`);
     }
+    if (target.archivedAt) {
+      const activeCount = await prisma.challenge.count({
+        where: { createdById: target.createdById, archivedAt: null },
+      });
+      if (activeCount >= MAX_ACTIVE_CHALLENGES) redirect(`/challenges/${id}`);
+      await prisma.challenge.update({ where: { id }, data: { archivedAt: null } });
+    } else {
+      await prisma.challenge.update({
+        where: { id },
+        data: { archivedAt: new Date(), featuredAt: null },
+      });
+    }
+    revalidatePath(`/challenges/${id}`);
+    revalidatePath("/challenges");
+  }
+
+  async function deleteChallenge() {
+    "use server";
+    const session = await auth();
+    if (!session?.user?.id) redirect("/sign-in");
+    const me = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isAdmin: true },
+    });
+    if (!me?.isAdmin) redirect(`/challenges/${id}`);
     await prisma.challenge.delete({ where: { id } });
     redirect("/challenges");
   }
 
+  const actionButton =
+    "w-full rounded-xl border px-4 py-3 text-sm font-medium transition";
+
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/challenges" className="text-sm text-foreground/50">
-          ‹ Challenges
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/challenges" className="text-sm text-foreground/50">
+            ‹ Challenges
+          </Link>
+          <ShareButton path={`/c/${challenge.id}`} title={challenge.title} />
+        </div>
+        {archived && (
+          <p className="mt-3 rounded-xl border border-foreground/15 bg-foreground/5 p-3 text-center text-xs font-medium text-foreground/60">
+            🗄️ This challenge is archived — earned badges remain, but new attempts are closed.
+          </p>
+        )}
         <div className="mt-3 flex items-start gap-4">
           <span className="text-4xl" aria-hidden>
             {info.emoji}
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-bold leading-tight">{challenge.title}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold leading-tight">{challenge.title}</h1>
+              {featured && (
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  ⭐ FEATURED
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-foreground/50">
-              by{" "}
+              {info.label} · by{" "}
               <Link href={`/u/${challenge.createdBy.id}`} className="underline">
                 {challenge.createdBy.displayName ?? "unknown"}
               </Link>
@@ -108,7 +177,7 @@ export default async function ChallengeDetailPage({
             You did {myCompletion.reps} reps {formatRelativeTime(myCompletion.completedAt)}.
           </p>
         </div>
-      ) : (
+      ) : archived ? null : (
         <Link
           href={`/challenges/${challenge.id}/attempt`}
           className="rounded-xl bg-accent px-4 py-4 text-center text-lg font-bold text-accent-foreground transition active:scale-95"
@@ -142,15 +211,37 @@ export default async function ChallengeDetailPage({
         )}
       </section>
 
-      {canDelete && (
-        <form action={deleteChallenge} className="mt-4">
-          <button
-            type="submit"
-            className="w-full rounded-xl border border-red-500/30 px-4 py-3 text-sm font-medium text-red-500 transition hover:bg-red-500/10"
-          >
-            Delete challenge
-          </button>
-        </form>
+      {(isCreator || isAdmin) && (
+        <div className="mt-2 flex flex-col gap-2">
+          {isAdmin && !archived && (
+            <form action={toggleFeature}>
+              <button
+                type="submit"
+                className={`${actionButton} border-amber-500/30 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400`}
+              >
+                {featured ? "Remove from Featured" : "⭐ Feature this challenge"}
+              </button>
+            </form>
+          )}
+          <form action={toggleArchive}>
+            <button
+              type="submit"
+              className={`${actionButton} border-foreground/20 text-foreground/70 hover:bg-foreground/5`}
+            >
+              {archived ? "Restore challenge" : "Archive challenge"}
+            </button>
+          </form>
+          {isAdmin && (
+            <form action={deleteChallenge}>
+              <button
+                type="submit"
+                className={`${actionButton} border-red-500/30 text-red-500 hover:bg-red-500/10`}
+              >
+                Delete permanently (admin)
+              </button>
+            </form>
+          )}
+        </div>
       )}
     </div>
   );

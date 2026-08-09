@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { handleRouteError, jsonError } from "@/lib/api";
-import { assertPlausible, consumeToken } from "@/lib/anticheat";
+import { assertPlausible, consumeToken, MAX_RPM } from "@/lib/anticheat";
 
 const bodySchema = z.object({
   tokenId: z.string().min(1),
@@ -41,7 +41,7 @@ export async function POST(
     }
 
     const duration = Math.min(body.durationSeconds || elapsedSeconds, elapsedSeconds);
-    assertPlausible(competition.exercise, body.reps, duration);
+    assertPlausible(MAX_RPM[competition.exercise], body.reps, duration);
 
     const now = new Date();
     const isNewBest = body.reps > entry.bestReps;

@@ -1,15 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ExerciseType } from "@prisma/client";
 import { EXERCISES, EXERCISE_TYPES } from "@/lib/exercises";
 
-export default function ChallengeForm() {
+type CustomExerciseOption = { id: string; name: string; emoji: string };
+
+type Selection =
+  | { kind: "builtin"; exercise: ExerciseType }
+  | { kind: "custom"; id: string };
+
+export default function ChallengeForm({
+  customExercises,
+  preselectCustomId,
+}: {
+  customExercises: CustomExerciseOption[];
+  preselectCustomId?: string;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [exercise, setExercise] = useState<ExerciseType>("PUSHUP");
+  const [selection, setSelection] = useState<Selection>(
+    preselectCustomId && customExercises.some((e) => e.id === preselectCustomId)
+      ? { kind: "custom", id: preselectCustomId }
+      : { kind: "builtin", exercise: "PUSHUP" },
+  );
   const [targetReps, setTargetReps] = useState(20);
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(5);
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +43,9 @@ export default function ChallengeForm() {
         body: JSON.stringify({
           title,
           description,
-          exercise,
+          ...(selection.kind === "builtin"
+            ? { exercise: selection.exercise }
+            : { customExerciseId: selection.id }),
           targetReps,
           timeLimitSeconds: timeLimitMinutes * 60,
         }),
@@ -66,7 +85,7 @@ export default function ChallengeForm() {
           onChange={(e) => setDescription(e.target.value)}
           maxLength={500}
           rows={3}
-          placeholder="What should trainees know? Form cues, pacing tips…"
+          placeholder="What should people know? Form cues, pacing tips…"
           className={inputClass}
         />
       </label>
@@ -78,10 +97,10 @@ export default function ChallengeForm() {
             <button
               key={type}
               type="button"
-              onClick={() => setExercise(type)}
-              aria-pressed={exercise === type}
+              onClick={() => setSelection({ kind: "builtin", exercise: type })}
+              aria-pressed={selection.kind === "builtin" && selection.exercise === type}
               className={`flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-medium transition ${
-                exercise === type
+                selection.kind === "builtin" && selection.exercise === type
                   ? "border-accent bg-accent/10"
                   : "border-foreground/15 hover:border-foreground/30"
               }`}
@@ -90,6 +109,28 @@ export default function ChallengeForm() {
               {EXERCISES[type].label}
             </button>
           ))}
+          {customExercises.map((exercise) => (
+            <button
+              key={exercise.id}
+              type="button"
+              onClick={() => setSelection({ kind: "custom", id: exercise.id })}
+              aria-pressed={selection.kind === "custom" && selection.id === exercise.id}
+              className={`flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-medium transition ${
+                selection.kind === "custom" && selection.id === exercise.id
+                  ? "border-accent bg-accent/10"
+                  : "border-foreground/15 hover:border-foreground/30"
+              }`}
+            >
+              <span className="text-xl">{exercise.emoji}</span>
+              <span className="min-w-0 truncate">{exercise.name}</span>
+            </button>
+          ))}
+          <Link
+            href="/exercises/new"
+            className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-foreground/25 p-3 text-sm font-medium text-foreground/60 transition hover:border-foreground/50 hover:text-foreground"
+          >
+            ＋ Custom exercise
+          </Link>
         </div>
       </fieldset>
 

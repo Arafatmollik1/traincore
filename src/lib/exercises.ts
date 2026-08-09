@@ -1,4 +1,4 @@
-import type { ExerciseType } from "@prisma/client";
+import type { ExerciseType, Joint } from "@prisma/client";
 
 export type ExerciseInfo = {
   label: string;
@@ -30,3 +30,32 @@ export const EXERCISES: Record<ExerciseType, ExerciseInfo> = {
 };
 
 export const EXERCISE_TYPES = Object.keys(EXERCISES) as ExerciseType[];
+
+export const JOINTS: Record<Joint, { label: string; hint: string }> = {
+  ELBOW: { label: "Elbow", hint: "arm bends and extends (pushups, curls)" },
+  KNEE: { label: "Knee", hint: "legs bend and extend (squats, lunges)" },
+  HIP: { label: "Hip", hint: "torso folds and unfolds (sit-ups, toe touches)" },
+  SHOULDER: { label: "Shoulder", hint: "arms raise and lower (arm raises, presses)" },
+};
+
+export const JOINT_TYPES = Object.keys(JOINTS) as Joint[];
+
+type ChallengeExerciseFields = {
+  exercise: ExerciseType | null;
+  customExercise?: { name: string; emoji: string } | null;
+};
+
+/** Display info for a challenge's exercise, built-in or custom. */
+export function challengeExerciseInfo(challenge: ChallengeExerciseFields): {
+  label: string;
+  emoji: string;
+} {
+  if (challenge.exercise) return EXERCISES[challenge.exercise];
+  if (challenge.customExercise) {
+    return {
+      label: challenge.customExercise.name,
+      emoji: challenge.customExercise.emoji,
+    };
+  }
+  return { label: "Exercise", emoji: "🎯" };
+}

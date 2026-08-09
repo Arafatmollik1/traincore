@@ -1,10 +1,8 @@
-import { EXERCISES } from "@/lib/exercises";
-import type { ExerciseType } from "@prisma/client";
-
 export type BadgeItem = {
   id: string;
   challengeTitle: string;
-  exercise: ExerciseType;
+  label: string;
+  emoji: string;
   completedAt: Date;
 };
 
@@ -25,7 +23,7 @@ export default function BadgeGrid({ badges }: { badges: BadgeItem[] }) {
           className="flex flex-col items-center gap-1 rounded-xl border border-foreground/10 bg-foreground/[0.03] p-3 text-center"
         >
           <span className="text-3xl" aria-hidden>
-            {EXERCISES[badge.exercise].emoji}
+            {badge.emoji}
           </span>
           <span className="line-clamp-2 text-xs font-medium leading-tight">
             {badge.challengeTitle}

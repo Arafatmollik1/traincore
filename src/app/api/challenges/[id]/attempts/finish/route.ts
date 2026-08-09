@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { handleRouteError, jsonError } from "@/lib/api";
-import { assertPlausible, consumeToken } from "@/lib/anticheat";
+import { assertPlausible, consumeToken, MAX_RPM } from "@/lib/anticheat";
 
 const bodySchema = z.object({
   tokenId: z.string().min(1),
@@ -20,7 +20,10 @@ export async function POST(
     const { id } = await params;
     const body = bodySchema.parse(await request.json());
 
-    const challenge = await prisma.challenge.findUnique({ where: { id } });
+    const challenge = await prisma.challenge.findUnique({
+      where: { id },
+      include: { customExercise: { select: { maxRpm: true } } },
+    });
     if (!challenge) return jsonError(404, "Challenge not found");
 
     const { elapsedSeconds } = await consumeToken({
@@ -32,7 +35,10 @@ export async function POST(
 
     // Never trust the client clock: use the smaller of claimed vs server time.
     const duration = Math.min(body.durationSeconds || elapsedSeconds, elapsedSeconds);
-    assertPlausible(challenge.exercise, body.reps, duration);
+    const maxRpm = challenge.exercise
+      ? MAX_RPM[challenge.exercise]
+      : (challenge.customExercise?.maxRpm ?? 60);
+    assertPlausible(maxRpm, body.reps, duration);
 
     const completed = body.reps >= challenge.targetReps;
     if (completed) {

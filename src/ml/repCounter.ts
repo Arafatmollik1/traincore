@@ -1,9 +1,10 @@
-import type { ExerciseType } from "@prisma/client";
+import type { ExerciseType, Joint } from "@prisma/client";
 import type { Landmark } from "./angles";
 import { PushupCounter } from "./exercises/pushup";
 import { SquatCounter } from "./exercises/squat";
 import { SitupCounter } from "./exercises/situp";
 import { JumpingJackCounter } from "./exercises/jumpingJack";
+import { ConfigurableAngleCounter } from "./exercises/configurable";
 
 export type Phase = "top" | "bottom" | "between" | "unknown";
 
@@ -14,10 +15,22 @@ export type RepUpdate = {
 };
 
 export interface RepCounter {
-  readonly exercise: ExerciseType;
+  readonly exercise: ExerciseType | "CUSTOM";
   update(landmarks: Landmark[], tMs: number): RepUpdate;
   reset(): void;
 }
+
+/** Serializable description of which counter to run — safe to pass from
+ *  server components into the client attempt session. */
+export type CounterSpec =
+  | { kind: "builtin"; exercise: ExerciseType }
+  | {
+      kind: "custom";
+      joint: Joint;
+      downAngle: number;
+      upAngle: number;
+      minCycleMs: number;
+    };
 
 export const VISIBILITY_HINT = "Make sure your whole body is in the frame";
 
@@ -75,8 +88,16 @@ export class CycleTracker {
   }
 }
 
-export function createRepCounter(exercise: ExerciseType): RepCounter {
-  switch (exercise) {
+export function createRepCounter(spec: CounterSpec): RepCounter {
+  if (spec.kind === "custom") {
+    return new ConfigurableAngleCounter({
+      joint: spec.joint,
+      downAngle: spec.downAngle,
+      upAngle: spec.upAngle,
+      minCycleMs: spec.minCycleMs,
+    });
+  }
+  switch (spec.exercise) {
     case "PUSHUP":
       return new PushupCounter();
     case "SQUAT":

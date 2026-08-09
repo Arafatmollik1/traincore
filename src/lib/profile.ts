@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { challengeExerciseInfo } from "@/lib/exercises";
 import type { ProfileData } from "@/components/ProfileView";
 
 export async function loadProfile(userId: string): Promise<ProfileData | null> {
@@ -18,7 +19,15 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
     prisma.challengeCompletion.findMany({
       where: { userId },
       orderBy: { completedAt: "desc" },
-      include: { challenge: { select: { title: true, exercise: true } } },
+      include: {
+        challenge: {
+          select: {
+            title: true,
+            exercise: true,
+            customExercise: { select: { name: true, emoji: true } },
+          },
+        },
+      },
     }),
     prisma.competitionEntry.findMany({
       where: { userId },
@@ -67,12 +76,16 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
     image: user.image,
     isAdmin: user.isAdmin,
     joinedAt: user.createdAt,
-    badges: completions.map((completion) => ({
-      id: completion.id,
-      challengeTitle: completion.challenge.title,
-      exercise: completion.challenge.exercise,
-      completedAt: completion.completedAt,
-    })),
+    badges: completions.map((completion) => {
+      const info = challengeExerciseInfo(completion.challenge);
+      return {
+        id: completion.id,
+        challengeTitle: completion.challenge.title,
+        label: info.label,
+        emoji: info.emoji,
+        completedAt: completion.completedAt,
+      };
+    }),
     competitions,
   };
 }
