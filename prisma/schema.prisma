@@ -102,14 +102,15 @@ model ChallengeCompletion {
 }
 
 model Competition {
-  id          String       @id @default(cuid())
-  title       String
-  description String
-  exercise    ExerciseType
-  startsAt    DateTime
-  endsAt      DateTime
-  createdById String
-  createdAt   DateTime     @default(now())
+  id                      String       @id @default(cuid())
+  title                   String
+  description             String
+  exercise                ExerciseType
+  startsAt                DateTime
+  endsAt                  DateTime
+  attemptTimeLimitSeconds Int          @default(180)
+  createdById             String
+  createdAt               DateTime     @default(now())
 
   createdBy User                 @relation(fields: [createdById], references: [id])
   entries   CompetitionEntry[]
