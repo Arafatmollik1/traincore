@@ -1,11 +1,20 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 export const metadata = { title: "Sign in" };
 
 export default async function SignInPage() {
+  // Only bounce to the app if the session's user still exists in the DB —
+  // a stale cookie after a DB reset would otherwise cause a redirect loop.
   const session = await auth();
-  if (session?.user) redirect("/challenges");
+  if (session?.user?.id) {
+    const exists = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    });
+    if (exists) redirect("/challenges");
+  }
 
   const googleConfigured = Boolean(
     process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
