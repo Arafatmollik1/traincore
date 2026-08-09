@@ -33,8 +33,8 @@ const NEEDED_LANDMARKS = [
   ...new Set(Object.values(ANGLE_TRIPLETS).flat()),
 ];
 
-/** Live pose is "at" a template below this mean angle difference (degrees). */
-export const MATCH_THRESHOLD = 25;
+/** Live pose is "at" a template below this distance (degrees, top-3 metric). */
+export const MATCH_THRESHOLD = 20;
 /** Consecutive captured poses must differ by at least this much. */
 export const MIN_POSE_DISTANCE = 30;
 export const MIN_POSES = 2;
@@ -51,11 +51,18 @@ export function computeSignature(landmarks: Landmark[]): PoseSignature | null {
   return signature;
 }
 
-/** Mean absolute angle difference between two signatures, in degrees. */
+/**
+ * Distance between two signatures: the mean of the THREE largest per-joint
+ * angle differences. Averaging all 8 joints would dilute movements that only
+ * involve one or two joints (curls, toe touches) — this metric scores the
+ * joints that actually move. It's a norm, so the triangle inequality holds
+ * and match/distinctness thresholds stay mutually safe.
+ */
 export function signatureDistance(a: PoseSignature, b: PoseSignature): number {
-  let sum = 0;
-  for (const key of ANGLE_KEYS) sum += Math.abs(a[key] - b[key]);
-  return sum / ANGLE_KEYS.length;
+  const diffs = ANGLE_KEYS.map((key) => Math.abs(a[key] - b[key])).sort(
+    (x, y) => y - x,
+  );
+  return (diffs[0] + diffs[1] + diffs[2]) / 3;
 }
 
 /**
