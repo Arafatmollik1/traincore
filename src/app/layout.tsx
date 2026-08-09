@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import PwaSetup from "@/components/PwaSetup";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +21,14 @@ export const metadata: Metadata = {
   description:
     "Free fitness challenges, competitions and community — with live AI rep counting.",
   applicationName: "traincore",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "traincore",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -40,6 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
+        <PwaSetup />
       </body>
     </html>
   );
