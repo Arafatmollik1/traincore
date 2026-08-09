@@ -14,13 +14,6 @@ enum ExerciseType {
   JUMPING_JACK
 }
 
-enum Joint {
-  ELBOW
-  KNEE
-  HIP
-  SHOULDER
-}
-
 enum AttemptKind {
   CHALLENGE
   COMPETITION
@@ -75,10 +68,8 @@ model CustomExercise {
   id          String   @id @default(cuid())
   name        String
   emoji       String   @default("🎯")
-  joint       Joint
-  downAngle   Int
-  upAngle     Int
-  minCycleMs  Int      @default(400)
+  poses       Json
+  minCycleMs  Int      @default(600)
   maxRpm      Int      @default(60)
   createdById String
   createdAt   DateTime @default(now())

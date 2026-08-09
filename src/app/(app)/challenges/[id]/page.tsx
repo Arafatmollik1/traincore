@@ -27,7 +27,7 @@ export default async function ChallengeDetailPage({
       where: { id },
       include: {
         createdBy: { select: { id: true, displayName: true } },
-        customExercise: { select: { name: true, emoji: true, joint: true } },
+        customExercise: { select: { name: true, emoji: true } },
         completions: {
           orderBy: { completedAt: "desc" },
           take: 10,

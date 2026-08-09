@@ -1,10 +1,11 @@
-import type { ExerciseType, Joint } from "@prisma/client";
+import type { ExerciseType } from "@prisma/client";
 import type { Landmark } from "./angles";
+import type { PoseSignature } from "./poseMatch";
 import { PushupCounter } from "./exercises/pushup";
 import { SquatCounter } from "./exercises/squat";
 import { SitupCounter } from "./exercises/situp";
 import { JumpingJackCounter } from "./exercises/jumpingJack";
-import { ConfigurableAngleCounter } from "./exercises/configurable";
+import { TemplatePoseCounter } from "./exercises/template";
 
 export type Phase = "top" | "bottom" | "between" | "unknown";
 
@@ -24,13 +25,7 @@ export interface RepCounter {
  *  server components into the client attempt session. */
 export type CounterSpec =
   | { kind: "builtin"; exercise: ExerciseType }
-  | {
-      kind: "custom";
-      joint: Joint;
-      downAngle: number;
-      upAngle: number;
-      minCycleMs: number;
-    };
+  | { kind: "custom"; poses: PoseSignature[]; minCycleMs: number };
 
 export const VISIBILITY_HINT = "Make sure your whole body is in the frame";
 
@@ -90,12 +85,7 @@ export class CycleTracker {
 
 export function createRepCounter(spec: CounterSpec): RepCounter {
   if (spec.kind === "custom") {
-    return new ConfigurableAngleCounter({
-      joint: spec.joint,
-      downAngle: spec.downAngle,
-      upAngle: spec.upAngle,
-      minCycleMs: spec.minCycleMs,
-    });
+    return new TemplatePoseCounter(spec.poses, spec.minCycleMs);
   }
   switch (spec.exercise) {
     case "PUSHUP":

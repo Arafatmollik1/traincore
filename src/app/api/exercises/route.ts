@@ -4,19 +4,24 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { handleRouteError, jsonError } from "@/lib/api";
 import { MAX_CUSTOM_EXERCISES } from "@/lib/limits";
+import {
+  ANGLE_KEYS,
+  MAX_POSES,
+  MIN_POSES,
+  validatePoseSequence,
+} from "@/ml/poseMatch";
 
-const createSchema = z
-  .object({
-    name: z.string().trim().min(3).max(40),
-    emoji: z.string().trim().min(1).max(4),
-    joint: z.enum(["ELBOW", "KNEE", "HIP", "SHOULDER"]),
-    downAngle: z.number().int().min(20).max(160),
-    upAngle: z.number().int().min(40).max(180),
-  })
-  .refine((data) => data.upAngle >= data.downAngle + 20, {
-    message: "Up angle must be at least 20° above the down angle",
-    path: ["upAngle"],
-  });
+const signatureSchema = z.object(
+  Object.fromEntries(
+    ANGLE_KEYS.map((key) => [key, z.number().min(0).max(200)]),
+  ) as Record<(typeof ANGLE_KEYS)[number], z.ZodNumber>,
+);
+
+const createSchema = z.object({
+  name: z.string().trim().min(3).max(40),
+  emoji: z.string().trim().min(1).max(4),
+  poses: z.array(signatureSchema).min(MIN_POSES).max(MAX_POSES),
+});
 
 export async function GET() {
   try {
@@ -41,6 +46,9 @@ export async function POST(request: Request) {
       return jsonError(409, `You can have at most ${MAX_CUSTOM_EXERCISES} custom exercises`);
     }
     const data = createSchema.parse(await request.json());
+    const sequenceError = validatePoseSequence(data.poses);
+    if (sequenceError) return jsonError(400, sequenceError);
+
     const exercise = await prisma.customExercise.create({
       data: { ...data, createdById: user.id },
     });

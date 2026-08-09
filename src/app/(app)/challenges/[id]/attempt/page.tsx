@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { challengeExerciseInfo, EXERCISES } from "@/lib/exercises";
 import type { CounterSpec } from "@/ml/repCounter";
+import type { PoseSignature } from "@/ml/poseMatch";
 import AttemptSession from "@/components/attempt/AttemptSession";
 
 export const metadata = { title: "Attempt" };
@@ -30,15 +31,13 @@ export default async function ChallengeAttemptPage({
     ? { kind: "builtin", exercise: challenge.exercise }
     : {
         kind: "custom",
-        joint: challenge.customExercise!.joint,
-        downAngle: challenge.customExercise!.downAngle,
-        upAngle: challenge.customExercise!.upAngle,
+        poses: challenge.customExercise!.poses as unknown as PoseSignature[],
         minCycleMs: challenge.customExercise!.minCycleMs,
       };
   const info = challengeExerciseInfo(challenge);
   const description = challenge.exercise
     ? EXERCISES[challenge.exercise].description
-    : "Full range of motion — the camera tracks your joint angle.";
+    : "Hit each captured pose in order — the camera tracks your movement cycle.";
 
   return (
     <AttemptSession

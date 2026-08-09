@@ -77,6 +77,7 @@ async function main() {
     });
   }
 
+  // Two captured pose signatures: arms down at the sides, then arms overhead.
   const armRaises = await prisma.customExercise.upsert({
     where: { id: "seed-exercise-arm-raises" },
     update: {},
@@ -84,9 +85,20 @@ async function main() {
       id: "seed-exercise-arm-raises",
       name: "Arm raises",
       emoji: "🙌",
-      joint: "SHOULDER",
-      downAngle: 60,
-      upAngle: 150,
+      poses: [
+        {
+          leftElbow: 170, rightElbow: 170,
+          leftShoulder: 20, rightShoulder: 20,
+          leftHip: 172, rightHip: 172,
+          leftKnee: 175, rightKnee: 175,
+        },
+        {
+          leftElbow: 165, rightElbow: 165,
+          leftShoulder: 160, rightShoulder: 160,
+          leftHip: 172, rightHip: 172,
+          leftKnee: 175, rightKnee: 175,
+        },
+      ],
       createdById: coach.id,
     },
   });
