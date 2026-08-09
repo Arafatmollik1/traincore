@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# ML assets (restored by `npm install` via scripts/setup-ml-assets.mjs)
+/public/mediapipe/
+/public/models/
 
 # vercel
 .vercel
