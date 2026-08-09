@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { challengeExerciseInfo } from "@/lib/exercises";
 import { formatDuration } from "@/lib/format";
+import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
+import AnimatedStickFigure from "@/components/AnimatedStickFigure";
 
 export const metadata = { title: "Challenge invite" };
 
@@ -26,12 +28,15 @@ export default async function PublicChallengePage({
     where: { id },
     include: {
       createdBy: { select: { displayName: true } },
-      customExercise: { select: { name: true, emoji: true } },
+      customExercise: { select: { name: true, emoji: true, keyframes: true } },
       _count: { select: { completions: true } },
     },
   });
   if (!challenge) notFound();
   const info = challengeExerciseInfo(challenge);
+  const keyframes: StickFrame[] | null = challenge.exercise
+    ? BUILTIN_KEYFRAMES[challenge.exercise]
+    : ((challenge.customExercise?.keyframes as unknown as StickFrame[] | null) ?? null);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-8 px-6 py-10 text-center">
@@ -40,9 +45,13 @@ export default async function PublicChallengePage({
       </p>
 
       <div className="flex w-full flex-col items-center gap-3 rounded-3xl border border-foreground/10 bg-foreground/[0.02] p-8">
-        <span className="text-5xl" aria-hidden>
-          {info.emoji}
-        </span>
+        {keyframes && keyframes.length >= 2 ? (
+          <AnimatedStickFigure frames={keyframes} className="h-32 w-32 text-accent" />
+        ) : (
+          <span className="text-5xl" aria-hidden>
+            {info.emoji}
+          </span>
+        )}
         <h1 className="text-2xl font-bold leading-tight">{challenge.title}</h1>
         <p className="text-sm text-foreground/50">
           {info.label} · by {challenge.createdBy.displayName ?? "unknown"}

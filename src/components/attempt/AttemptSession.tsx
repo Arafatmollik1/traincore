@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createRepCounter, type CounterSpec, type RepUpdate } from "@/ml/repCounter";
 import { drawSkeleton, getPoseLandmarker } from "@/ml/pose";
+import type { StickFrame } from "@/lib/stick";
+import AnimatedStickFigure from "@/components/AnimatedStickFigure";
 
 type Stage =
   | "setup" // camera + model loading
@@ -28,6 +30,7 @@ type Props = {
   label: string;
   emoji: string;
   description: string;
+  keyframes?: StickFrame[];
   timeLimitSeconds: number;
   targetReps?: number;
   startEndpoint: string;
@@ -41,6 +44,7 @@ export default function AttemptSession({
   label,
   emoji,
   description,
+  keyframes,
   timeLimitSeconds,
   targetReps,
   startEndpoint,
@@ -246,7 +250,11 @@ export default function AttemptSession({
 
         {stage === "ready" && (
           <Overlay>
-            <p className="text-4xl">{emoji}</p>
+            {keyframes && keyframes.length >= 2 ? (
+              <AnimatedStickFigure frames={keyframes} className="h-28 w-28 text-white" />
+            ) : (
+              <p className="text-4xl">{emoji}</p>
+            )}
             <h2 className="text-xl font-bold">{label}</h2>
             <p className="max-w-xs text-center text-sm text-white/70">{description}</p>
             <p className="text-sm text-white/70">

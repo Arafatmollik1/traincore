@@ -12,18 +12,21 @@ import {
 } from "@/ml/poseMatch";
 import { TemplatePoseCounter } from "@/ml/exercises/template";
 import { drawSkeleton, getPoseLandmarker } from "@/ml/pose";
+import { extractStickFrame, type StickFrame } from "@/lib/stick";
+import StickFigure from "@/components/StickFigure";
 
 const EMOJI_CHOICES = ["🎯", "💪", "🦵", "🔥", "⭐", "🏋️", "🤸", "🚀", "🧘", "⚡"];
 const CAPTURE_SECONDS = 8;
 const REQUIRED_TEST_REPS = 3;
 
 type Mode = "off" | "idle" | "countdown" | "testing";
+type Capture = { signature: PoseSignature; frame: StickFrame };
 
 export default function ExerciseBuilder() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🎯");
-  const [poses, setPoses] = useState<PoseSignature[]>([]);
+  const [captures, setCaptures] = useState<Capture[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +35,7 @@ export default function ExerciseBuilder() {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
   const liveSignatureRef = useRef<PoseSignature | null>(null);
+  const liveFrameRef = useRef<StickFrame | null>(null);
   const testCounterRef = useRef<TemplatePoseCounter | null>(null);
   const modeRef = useRef<Mode>("off");
 
@@ -73,6 +77,9 @@ export default function ExerciseBuilder() {
             void drawSkeleton(canvas, landmarks);
           }
           liveSignatureRef.current = computeSignature(landmarks);
+          liveFrameRef.current = liveSignatureRef.current
+            ? extractStickFrame(landmarks)
+            : null;
           setBodyVisible(liveSignatureRef.current !== null);
           if (modeRef.current === "testing" && testCounterRef.current) {
             const update = testCounterRef.current.update(landmarks, tMs);
@@ -81,6 +88,7 @@ export default function ExerciseBuilder() {
           }
         } else {
           liveSignatureRef.current = null;
+          liveFrameRef.current = null;
           setBodyVisible(false);
         }
       }
@@ -125,33 +133,36 @@ export default function ExerciseBuilder() {
       if (modeRef.current !== "countdown") return; // camera stopped mid-count
     }
     const signature = liveSignatureRef.current;
-    if (!signature) {
+    const frame = liveFrameRef.current;
+    if (!signature || !frame) {
       setCaptureNote("Couldn't see your whole body at the snap — try again.");
       setMode("idle");
       return;
     }
-    const previous = poses[poses.length - 1];
-    if (previous && signatureDistance(previous, signature) < MIN_POSE_DISTANCE) {
+    const previous = captures[captures.length - 1];
+    if (previous && signatureDistance(previous.signature, signature) < MIN_POSE_DISTANCE) {
       setCaptureNote(
         "That pose looks the same as the previous one — make it more distinct and recapture.",
       );
       setMode("idle");
       return;
     }
-    setPoses((current) => [...current, signature]);
-    setCaptureNote(`Pose ${poses.length + 1} captured ✓`);
+    setCaptures((current) => [...current, { signature, frame }]);
+    setCaptureNote(`Pose ${captures.length + 1} captured ✓`);
     setMode("idle");
   }
 
   function startTest() {
-    testCounterRef.current = new TemplatePoseCounter(poses);
+    testCounterRef.current = new TemplatePoseCounter(
+      captures.map((capture) => capture.signature),
+    );
     setTestReps(0);
-    setTestStation({ next: 0, total: poses.length, armed: false });
+    setTestStation({ next: 0, total: captures.length, armed: false });
     setMode("testing");
   }
 
   function removeLastPose() {
-    setPoses((current) => current.slice(0, -1));
+    setCaptures((current) => current.slice(0, -1));
     setTestReps(0);
     setCaptureNote(null);
     if (modeRef.current === "testing") setMode("idle");
@@ -165,7 +176,12 @@ export default function ExerciseBuilder() {
       const res = await fetch("/api/exercises", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, emoji, poses }),
+        body: JSON.stringify({
+          name,
+          emoji,
+          poses: captures.map((capture) => capture.signature),
+          keyframes: captures.map((capture) => capture.frame),
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "Couldn't save the exercise");
@@ -180,8 +196,8 @@ export default function ExerciseBuilder() {
 
   const inputClass =
     "rounded-xl border border-foreground/15 bg-background px-4 py-3 text-base outline-none transition focus:border-accent";
-  const canCaptureMore = poses.length < MAX_POSES;
-  const enoughPoses = poses.length >= MIN_POSES;
+  const canCaptureMore = captures.length < MAX_POSES;
+  const enoughPoses = captures.length >= MIN_POSES;
   const tested = testReps >= REQUIRED_TEST_REPS;
 
   return (
@@ -217,7 +233,7 @@ export default function ExerciseBuilder() {
 
       {/* Step guide */}
       <ol className="flex flex-col gap-1 rounded-2xl border border-foreground/10 p-4 text-sm text-foreground/70">
-        <li className={poses.length > 0 ? "text-foreground/40 line-through" : ""}>
+        <li className={captures.length > 0 ? "text-foreground/40 line-through" : ""}>
           1. Start the camera and step back so your whole body is visible
         </li>
         <li className={enoughPoses ? "text-foreground/40 line-through" : ""}>
@@ -293,7 +309,7 @@ export default function ExerciseBuilder() {
                 <span className="ml-1.5 text-xs text-white/70">/ {REQUIRED_TEST_REPS} reps</span>
               </div>
               <div className="flex items-center gap-1.5 rounded-lg bg-black/60 px-3 py-2 backdrop-blur">
-                {poses.map((_, index) => (
+                {captures.map((_, index) => (
                   <span
                     key={index}
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -319,8 +335,8 @@ export default function ExerciseBuilder() {
                 className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition active:scale-95 disabled:opacity-50"
               >
                 {mode === "countdown"
-                  ? `Get into pose ${poses.length + 1}…`
-                  : `Capture pose ${poses.length + 1} (${CAPTURE_SECONDS}s timer)`}
+                  ? `Get into pose ${captures.length + 1}…`
+                  : `Capture pose ${captures.length + 1} (${CAPTURE_SECONDS}s timer)`}
               </button>
             )}
             {enoughPoses && mode !== "testing" && mode !== "countdown" && (
@@ -329,7 +345,7 @@ export default function ExerciseBuilder() {
                 onClick={startTest}
                 className="rounded-xl border border-accent px-4 py-2.5 text-sm font-semibold text-accent transition active:scale-95"
               >
-                ▶ Test it ({poses.length} poses)
+                ▶ Test it ({captures.length} poses)
               </button>
             )}
             {mode === "testing" && (
@@ -345,28 +361,31 @@ export default function ExerciseBuilder() {
                 Back to capturing
               </button>
             )}
-            {poses.length > 0 && mode !== "countdown" && (
+            {captures.length > 0 && mode !== "countdown" && (
               <button
                 type="button"
                 onClick={removeLastPose}
                 className="rounded-xl border border-foreground/20 px-4 py-2.5 text-sm font-medium text-foreground/60 transition"
               >
-                Remove pose {poses.length}
+                Remove pose {captures.length}
               </button>
             )}
           </div>
         )}
 
-        {/* Captured pose chips */}
-        {poses.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {poses.map((_, index) => (
-              <span
+        {/* Captured pose cards */}
+        {captures.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {captures.map((capture, index) => (
+              <div
                 key={index}
-                className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent"
+                className="flex flex-col items-center rounded-xl border border-accent/30 bg-accent/5 p-1.5"
               >
-                Pose {index + 1} ✓
-              </span>
+                <StickFigure frame={capture.frame} className="h-14 w-14 text-foreground" />
+                <span className="text-[10px] font-semibold text-accent">
+                  Pose {index + 1}
+                </span>
+              </div>
             ))}
             {tested && (
               <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
@@ -395,7 +414,7 @@ export default function ExerciseBuilder() {
         {submitting
           ? "Saving…"
           : !enoughPoses
-            ? `Capture ${MIN_POSES - poses.length} more pose${MIN_POSES - poses.length === 1 ? "" : "s"} first`
+            ? `Capture ${MIN_POSES - captures.length} more pose${MIN_POSES - captures.length === 1 ? "" : "s"} first`
             : !tested
               ? `Test ${REQUIRED_TEST_REPS} reps to unlock saving`
               : "Save exercise"}

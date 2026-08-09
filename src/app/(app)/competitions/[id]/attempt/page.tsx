@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { EXERCISES } from "@/lib/exercises";
+import { BUILTIN_KEYFRAMES } from "@/lib/stick";
 import AttemptSession from "@/components/attempt/AttemptSession";
 
 export const metadata = { title: "Attempt" };
@@ -34,6 +35,7 @@ export default async function CompetitionAttemptPage({
       label={info.label}
       emoji={info.emoji}
       description={info.description}
+      keyframes={BUILTIN_KEYFRAMES[competition.exercise]}
       timeLimitSeconds={competition.attemptTimeLimitSeconds}
       startEndpoint={`/api/competitions/${id}/attempts/start`}
       finishEndpoint={`/api/competitions/${id}/attempts/finish`}

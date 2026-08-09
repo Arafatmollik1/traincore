@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { challengeExerciseInfo } from "@/lib/exercises";
 import { MAX_ACTIVE_CHALLENGES } from "@/lib/limits";
 import { formatDuration, formatRelativeTime } from "@/lib/format";
+import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import ShareButton from "@/components/ShareButton";
+import StickFigure from "@/components/StickFigure";
+import AnimatedStickFigure from "@/components/AnimatedStickFigure";
 
 export const metadata = { title: "Challenge" };
 
@@ -27,7 +30,7 @@ export default async function ChallengeDetailPage({
       where: { id },
       include: {
         createdBy: { select: { id: true, displayName: true } },
-        customExercise: { select: { name: true, emoji: true } },
+        customExercise: { select: { name: true, emoji: true, keyframes: true } },
         completions: {
           orderBy: { completedAt: "desc" },
           take: 10,
@@ -48,6 +51,9 @@ export default async function ChallengeDetailPage({
   const archived = Boolean(challenge.archivedAt);
   const featured = Boolean(challenge.featuredAt);
   const info = challengeExerciseInfo(challenge);
+  const keyframes: StickFrame[] | null = challenge.exercise
+    ? BUILTIN_KEYFRAMES[challenge.exercise]
+    : ((challenge.customExercise?.keyframes as unknown as StickFrame[] | null) ?? null);
 
   async function toggleFeature() {
     "use server";
@@ -167,6 +173,33 @@ export default async function ChallengeDetailPage({
 
       {challenge.description && (
         <p className="text-sm leading-relaxed text-foreground/80">{challenge.description}</p>
+      )}
+
+      {keyframes && keyframes.length >= 2 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
+            How it&apos;s done
+          </h2>
+          <div className="flex items-center gap-4 rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-4">
+            <AnimatedStickFigure
+              frames={keyframes}
+              className="h-28 w-28 shrink-0 text-accent"
+            />
+            <div className="flex flex-1 items-center justify-evenly gap-2">
+              {keyframes.map((frame, index) => (
+                <div key={index} className="flex flex-col items-center gap-1">
+                  <StickFigure frame={frame} className="h-14 w-14 text-foreground/60" />
+                  <span className="text-[10px] font-medium text-foreground/40">
+                    {index + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-foreground/40">
+            One rep = moving through every pose in order and back to the first.
+          </p>
+        </section>
       )}
 
       {myCompletion ? (

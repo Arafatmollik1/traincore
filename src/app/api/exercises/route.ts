@@ -17,11 +17,21 @@ const signatureSchema = z.object(
   ) as Record<(typeof ANGLE_KEYS)[number], z.ZodNumber>,
 );
 
-const createSchema = z.object({
-  name: z.string().trim().min(3).max(40),
-  emoji: z.string().trim().min(1).max(4),
-  poses: z.array(signatureSchema).min(MIN_POSES).max(MAX_POSES),
-});
+const frameSchema = z
+  .array(z.tuple([z.number().min(-0.5).max(1.5), z.number().min(-0.5).max(1.5)]))
+  .length(13);
+
+const createSchema = z
+  .object({
+    name: z.string().trim().min(3).max(40),
+    emoji: z.string().trim().min(1).max(4),
+    poses: z.array(signatureSchema).min(MIN_POSES).max(MAX_POSES),
+    keyframes: z.array(frameSchema).min(MIN_POSES).max(MAX_POSES),
+  })
+  .refine((data) => data.keyframes.length === data.poses.length, {
+    message: "keyframes must match poses",
+    path: ["keyframes"],
+  });
 
 export async function GET() {
   try {

@@ -69,6 +69,7 @@ model CustomExercise {
   name        String
   emoji       String   @default("🎯")
   poses       Json
+  keyframes   Json?
   minCycleMs  Int      @default(600)
   maxRpm      Int      @default(60)
   createdById String

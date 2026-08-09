@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { challengeExerciseInfo, EXERCISES } from "@/lib/exercises";
 import type { CounterSpec } from "@/ml/repCounter";
 import type { PoseSignature } from "@/ml/poseMatch";
+import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import AttemptSession from "@/components/attempt/AttemptSession";
 
 export const metadata = { title: "Attempt" };
@@ -39,12 +40,18 @@ export default async function ChallengeAttemptPage({
     ? EXERCISES[challenge.exercise].description
     : "Hit each captured pose in order — the camera tracks your movement cycle.";
 
+  const keyframes: StickFrame[] | undefined = challenge.exercise
+    ? BUILTIN_KEYFRAMES[challenge.exercise]
+    : ((challenge.customExercise?.keyframes as unknown as StickFrame[] | null) ??
+      undefined);
+
   return (
     <AttemptSession
       counterSpec={counterSpec}
       label={info.label}
       emoji={info.emoji}
       description={description}
+      keyframes={keyframes}
       timeLimitSeconds={challenge.timeLimitSeconds}
       targetReps={challenge.targetReps}
       startEndpoint={`/api/challenges/${id}/attempts/start`}
