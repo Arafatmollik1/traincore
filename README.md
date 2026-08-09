@@ -1,12 +1,12 @@
 # Traincore
 
-A completely free, mobile-first fitness PWA. Trainers post challenges, the admin runs weekly competitions, and everyone hangs out in text-only communities — with **live AI rep counting**: you open your selfie camera, do pushups, and the app counts them in real time.
+A completely free, mobile-first fitness PWA. The admin posts challenges and runs weekly competitions, and everyone hangs out in text-only communities — with **live AI rep counting**: you open your selfie camera, do pushups, and the app counts them in real time.
 
 **No video is ever uploaded or stored.** Pose estimation runs entirely on your device (MediaPipe Pose Landmarker, WASM/GPU); only the final rep count is sent to the server.
 
 ## Features
 
-- 🏋️ **Challenges** — trainers create them ("50 pushups in 5 minutes"), trainees attempt them with the camera; hitting the target earns a badge on your profile.
+- 🏋️ **Challenges** — admin-created ("50 pushups in 5 minutes"); anyone attempts them with the camera, and hitting the target earns a badge on your profile.
 - 🏆 **Competitions** — admin-only creation, time-boxed (e.g. one week), unlimited attempts, best verified attempt wins, live leaderboard.
 - 💬 **Community** — Reddit-style but text-only: communities, posts, comments, nested replies. No votes, no images.
 - 📲 **Installable PWA** — add to home screen on Android/iOS; ML assets are cached offline after first use.
@@ -50,7 +50,7 @@ npm run dev            # http://localhost:3000
    - Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
 4. Put the client ID/secret into `.env` as `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` and restart the dev server.
 
-The account whose email matches `ADMIN_EMAIL` becomes admin on first sign-in (admin can create competitions and also everything a trainer can).
+The account whose email matches `ADMIN_EMAIL` becomes admin on first sign-in — only the admin can create challenges and competitions; everyone else attempts, competes, and uses communities.
 
 ### Testing the camera on your phone
 

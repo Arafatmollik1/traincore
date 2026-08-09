@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireTrainer, requireUser } from "@/lib/authz";
+import { requireAdmin, requireUser } from "@/lib/authz";
 import { handleRouteError } from "@/lib/api";
 
 const createSchema = z.object({
@@ -36,7 +36,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireTrainer();
+    const user = await requireAdmin();
     const data = createSchema.parse(await request.json());
     const challenge = await prisma.challenge.create({
       data: { ...data, createdById: user.id },

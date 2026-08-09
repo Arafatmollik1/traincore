@@ -8,7 +8,6 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
       displayName: true,
       name: true,
       image: true,
-      role: true,
       isAdmin: true,
       createdAt: true,
     },
@@ -66,7 +65,6 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
   return {
     displayName: user.displayName ?? user.name ?? "Anonymous",
     image: user.image,
-    role: user.role,
     isAdmin: user.isAdmin,
     joinedAt: user.createdAt,
     badges: completions.map((completion) => ({

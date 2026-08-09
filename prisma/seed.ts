@@ -14,32 +14,29 @@ async function main() {
       id: "seed-admin",
       email: "admin@demo.traincore.local",
       displayName: "traincore HQ",
-      role: "TRAINER",
       isAdmin: true,
       onboardedAt: now,
     },
   });
 
-  const trainer = await prisma.user.upsert({
+  const coach = await prisma.user.upsert({
     where: { email: "trainer@demo.traincore.local" },
     update: {},
     create: {
       id: "seed-trainer",
       email: "trainer@demo.traincore.local",
       displayName: "Coach Demo",
-      role: "TRAINER",
       onboardedAt: now,
     },
   });
 
-  const trainee = await prisma.user.upsert({
+  const athlete = await prisma.user.upsert({
     where: { email: "trainee@demo.traincore.local" },
     update: {},
     create: {
       id: "seed-trainee",
       email: "trainee@demo.traincore.local",
       displayName: "Demo Athlete",
-      role: "TRAINEE",
       onboardedAt: now,
     },
   });
@@ -75,7 +72,7 @@ async function main() {
     await prisma.challenge.upsert({
       where: { id: challenge.id },
       update: {},
-      create: { ...challenge, createdById: trainer.id },
+      create: { ...challenge, createdById: admin.id },
     });
   }
 
@@ -110,24 +107,24 @@ async function main() {
 
   await prisma.competitionEntry.upsert({
     where: {
-      competitionId_userId: { competitionId: pastComp.id, userId: trainee.id },
+      competitionId_userId: { competitionId: pastComp.id, userId: athlete.id },
     },
     update: {},
     create: {
       competitionId: pastComp.id,
-      userId: trainee.id,
+      userId: athlete.id,
       bestReps: 42,
       bestAttemptAt: new Date(now.getTime() - 3 * DAY),
     },
   });
   await prisma.competitionEntry.upsert({
     where: {
-      competitionId_userId: { competitionId: pastComp.id, userId: trainer.id },
+      competitionId_userId: { competitionId: pastComp.id, userId: coach.id },
     },
     update: {},
     create: {
       competitionId: pastComp.id,
-      userId: trainer.id,
+      userId: coach.id,
       bestReps: 55,
       bestAttemptAt: new Date(now.getTime() - 4 * DAY),
     },
@@ -144,7 +141,7 @@ async function main() {
       createdById: admin.id,
     },
   });
-  for (const userId of [admin.id, trainer.id, trainee.id]) {
+  for (const userId of [admin.id, coach.id, athlete.id]) {
     await prisma.membership.upsert({
       where: { communityId_userId: { communityId: community.id, userId } },
       update: {},
@@ -158,7 +155,7 @@ async function main() {
     create: {
       id: "seed-post",
       communityId: community.id,
-      authorId: trainee.id,
+      authorId: athlete.id,
       title: "Just did my first ML-counted pushups!",
       body: "The camera counted 23 pushups — brutal but fun. Anyone got tips for improving pace in the last minute?",
     },
@@ -169,7 +166,7 @@ async function main() {
     create: {
       id: "seed-comment",
       postId: post.id,
-      authorId: trainer.id,
+      authorId: coach.id,
       body: "Nice work! Try breaking it into sets of 8 with 5-second shakeouts.",
     },
   });
@@ -179,7 +176,7 @@ async function main() {
     create: {
       id: "seed-reply",
       postId: post.id,
-      authorId: trainee.id,
+      authorId: athlete.id,
       parentId: comment.id,
       body: "Will do — thanks coach!",
     },

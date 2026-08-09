@@ -6,7 +6,6 @@ import { handleRouteError, jsonError } from "@/lib/api";
 
 const bodySchema = z.object({
   displayName: z.string().trim().min(2).max(30),
-  role: z.enum(["TRAINEE", "TRAINER"]),
 });
 
 export async function POST(request: Request) {
@@ -15,11 +14,11 @@ export async function POST(request: Request) {
     if (user.onboardedAt) {
       return jsonError(409, "Already onboarded");
     }
-    const { displayName, role } = bodySchema.parse(await request.json());
+    const { displayName } = bodySchema.parse(await request.json());
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { displayName, role, onboardedAt: new Date() },
+      data: { displayName, onboardedAt: new Date() },
     });
 
     return NextResponse.json({ ok: true });

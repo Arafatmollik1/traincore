@@ -10,9 +10,9 @@ export default async function NewChallengePage() {
   if (!session?.user?.id) redirect("/sign-in");
   const me = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true, isAdmin: true },
+    select: { isAdmin: true },
   });
-  if (me?.role !== "TRAINER" && !me?.isAdmin) redirect("/challenges");
+  if (!me?.isAdmin) redirect("/challenges");
 
   return (
     <div className="flex flex-col gap-6">

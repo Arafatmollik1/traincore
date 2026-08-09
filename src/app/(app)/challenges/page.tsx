@@ -15,7 +15,7 @@ export default async function ChallengesPage() {
   const [me, challenges] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, isAdmin: true },
+      select: { isAdmin: true },
     }),
     prisma.challenge.findMany({
       orderBy: { createdAt: "desc" },
@@ -26,7 +26,7 @@ export default async function ChallengesPage() {
       },
     }),
   ]);
-  const canCreate = me?.role === "TRAINER" || me?.isAdmin;
+  const canCreate = me?.isAdmin;
 
   return (
     <div className="flex flex-col gap-4">

@@ -28,14 +28,6 @@ export async function requireUser(): Promise<User> {
   return user;
 }
 
-export async function requireTrainer(): Promise<User> {
-  const user = await requireUser();
-  if (user.role !== "TRAINER" && !user.isAdmin) {
-    throw new AuthzError(403, "Only trainers can do this");
-  }
-  return user;
-}
-
 export async function requireAdmin(): Promise<User> {
   const user = await requireUser();
   if (!user.isAdmin) throw new AuthzError(403, "Only the admin can do this");

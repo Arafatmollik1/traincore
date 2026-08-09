@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # traincore project notes
 
-Free fitness PWA: challenges (trainer-created, badge on ML-verified completion), competitions (admin-only, best-attempt leaderboard), text-only communities. Live rep counting runs fully client-side (MediaPipe Pose Landmarker); only final rep counts reach the server.
+Free fitness PWA: challenges (admin-created, badge on ML-verified completion), competitions (admin-only, best-attempt leaderboard), text-only communities (open to all). No roles — every account is a plain user; the only special account is the admin (ADMIN_EMAIL). Live rep counting runs fully client-side (MediaPipe Pose Landmarker); only final rep counts reach the server.
 
 ## Commands
 - `docker compose up -d` — Postgres 16 on **localhost:5433**
@@ -19,8 +19,8 @@ Free fitness PWA: challenges (trainer-created, badge on ML-verified completion),
 - Phone/camera testing: `npm run dev -- --experimental-https` + LAN IP
 
 ## Conventions
-- Reads: server components call Prisma directly. Mutations + polled reads: `src/app/api/*` route handlers with zod + `src/lib/authz.ts` helpers (`requireUser/Trainer/Admin/Member`), errors via `src/lib/api.ts#handleRouteError`.
-- Auth: Auth.js v5, Google only, JWT sessions; DB (not the token) is the source of truth for role/isAdmin/onboarded. Admin = `ADMIN_EMAIL` env matched in `events.createUser`.
+- Reads: server components call Prisma directly. Mutations + polled reads: `src/app/api/*` route handlers with zod + `src/lib/authz.ts` helpers (`requireUser/Admin/Member`), errors via `src/lib/api.ts#handleRouteError`.
+- Auth: Auth.js v5, Google only, JWT sessions; DB (not the token) is the source of truth for isAdmin/onboarded. Admin = `ADMIN_EMAIL` env matched in `events.createUser`.
 - Attempts are anti-cheat gated: single-use server-timed `AttemptToken` (`src/lib/anticheat.ts`) — never trust client reps/duration blindly.
 - ML: `src/ml/` — per-exercise hysteresis state machines over joint angles; assets self-hosted in `public/{models,mediapipe}` (gitignored, restored by `npm install` postinstall).
 - Deployment: intentionally none; localhost only. Do NOT propose Vercel.

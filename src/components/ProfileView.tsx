@@ -1,6 +1,6 @@
 import BadgeGrid, { type BadgeItem } from "@/components/BadgeGrid";
 import { EXERCISES } from "@/lib/exercises";
-import type { ExerciseType, Role } from "@prisma/client";
+import type { ExerciseType } from "@prisma/client";
 
 export type CompetitionHistoryItem = {
   id: string;
@@ -15,7 +15,6 @@ export type CompetitionHistoryItem = {
 export type ProfileData = {
   displayName: string;
   image: string | null;
-  role: Role | null;
   isAdmin: boolean;
   joinedAt: Date;
   badges: BadgeItem[];
@@ -48,9 +47,6 @@ export default function ProfileView({
                 Admin
               </span>
             )}
-            <span className="rounded-full bg-accent/15 px-2 py-0.5 font-semibold text-accent">
-              {profile.role === "TRAINER" ? "Trainer" : "Trainee"}
-            </span>
             <span className="text-foreground/50">
               joined{" "}
               {profile.joinedAt.toLocaleDateString("en-GB", {

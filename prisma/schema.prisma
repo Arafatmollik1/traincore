@@ -7,11 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  TRAINEE
-  TRAINER
-}
-
 enum ExerciseType {
   PUSHUP
   SQUAT
@@ -31,7 +26,6 @@ model User {
   emailVerified DateTime?
   image         String?
   displayName   String?
-  role          Role?
   isAdmin       Boolean   @default(false)
   onboardedAt   DateTime?
   createdAt     DateTime  @default(now())
