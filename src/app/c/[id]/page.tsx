@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { challengeSummary, segmentExerciseInfo } from "@/lib/exercises";
 import { formatDuration } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
+import { badgeSpriteUrl } from "@/lib/badges";
 import AnimatedStickFigure from "@/components/AnimatedStickFigure";
 
 export const metadata = { title: "Challenge invite" };
@@ -105,6 +106,17 @@ export default async function PublicChallengePage({
             <p className="text-xs text-foreground/50">completed</p>
           </div>
         </div>
+        {challenge.badgeSprite && (
+          <div className="mt-2 flex items-center gap-3 rounded-2xl border border-foreground/10 bg-background px-4 py-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={badgeSpriteUrl(challenge.badgeSprite)}
+              alt=""
+              className="h-14 w-14 object-contain"
+            />
+            <p className="text-xs text-foreground/60">Finish it to earn this badge</p>
+          </div>
+        )}
         {challenge.archivedAt && (
           <p className="mt-1 text-xs text-foreground/50">
             🗄️ This challenge has been archived — you can view it, but attempts are closed.

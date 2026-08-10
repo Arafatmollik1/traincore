@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { ExerciseType } from "@prisma/client";
 import { EXERCISES, EXERCISE_TYPES } from "@/lib/exercises";
 import { MAX_SEGMENTS } from "@/lib/limits";
+import { BADGE_SPRITES, badgeSpriteUrl } from "@/lib/badges";
 
 type CustomExerciseOption = { id: string; name: string; emoji: string };
 
@@ -40,6 +41,7 @@ export default function ChallengeForm({
       ? { ...DEFAULT_SEGMENT, selection: { kind: "custom", id: preselectCustomId } }
       : DEFAULT_SEGMENT,
   ]);
+  const [badgeSprite, setBadgeSprite] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +62,7 @@ export default function ChallengeForm({
         body: JSON.stringify({
           title,
           description,
+          badgeSprite: badgeSprite ?? undefined,
           segments: segments.map((segment) => ({
             ...(segment.selection.kind === "builtin"
               ? { exercise: segment.selection.exercise }
@@ -254,6 +257,51 @@ export default function ChallengeForm({
           >
             ＋ Custom exercise
           </Link>
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-sm font-medium">
+          Badge art{" "}
+          <span className="font-normal text-foreground/50">
+            — what finishers earn (optional)
+          </span>
+        </legend>
+        <div className="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto rounded-2xl border border-foreground/10 p-3">
+          <button
+            type="button"
+            onClick={() => setBadgeSprite(null)}
+            aria-pressed={badgeSprite === null}
+            className={`flex aspect-square flex-col items-center justify-center rounded-xl border text-xs font-medium transition ${
+              badgeSprite === null
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-foreground/15 text-foreground/50 hover:border-foreground/30"
+            }`}
+          >
+            <span className="text-2xl">🏅</span>
+            Default
+          </button>
+          {BADGE_SPRITES.map((sprite) => (
+            <button
+              key={sprite}
+              type="button"
+              onClick={() => setBadgeSprite(sprite)}
+              aria-pressed={badgeSprite === sprite}
+              className={`aspect-square rounded-xl border p-1.5 transition ${
+                badgeSprite === sprite
+                  ? "border-accent bg-accent/10"
+                  : "border-foreground/10 hover:border-foreground/30"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={badgeSpriteUrl(sprite)}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-contain"
+              />
+            </button>
+          ))}
         </div>
       </fieldset>
 

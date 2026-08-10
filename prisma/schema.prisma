@@ -85,6 +85,7 @@ model Challenge {
   id          String    @id @default(cuid())
   title       String
   description String
+  badgeSprite String?
   featuredAt  DateTime?
   archivedAt  DateTime?
   createdById String

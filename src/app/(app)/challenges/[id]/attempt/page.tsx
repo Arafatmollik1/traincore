@@ -5,6 +5,7 @@ import { segmentExerciseInfo, EXERCISES } from "@/lib/exercises";
 import type { PoseSignature } from "@/ml/poseMatch";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import AttemptSession, { type SegmentSpec } from "@/components/attempt/AttemptSession";
+import { badgeSpriteUrl } from "@/lib/badges";
 
 export const metadata = { title: "Attempt" };
 
@@ -60,6 +61,9 @@ export default async function ChallengeAttemptPage({
   return (
     <AttemptSession
       segments={segments}
+      badgeImage={
+        challenge.badgeSprite ? badgeSpriteUrl(challenge.badgeSprite) : undefined
+      }
       startEndpoint={`/api/challenges/${id}/attempts/start`}
       finishEndpoint={`/api/challenges/${id}/attempts/finish`}
       backHref={`/challenges/${id}`}

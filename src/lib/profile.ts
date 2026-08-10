@@ -23,6 +23,7 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
         challenge: {
           select: {
             title: true,
+            badgeSprite: true,
             segments: {
               orderBy: { order: "asc" },
               select: {
@@ -91,6 +92,7 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
         challengeTitle: completion.challenge.title,
         label: summary.label,
         emoji: summary.emoji,
+        sprite: completion.challenge.badgeSprite,
         completedAt: completion.completedAt,
       };
     }),

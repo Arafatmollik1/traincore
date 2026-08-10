@@ -44,6 +44,7 @@ type SegmentOutcome = { reps: number; durationSeconds: number };
 
 type Props = {
   segments: SegmentSpec[];
+  badgeImage?: string;
   startEndpoint: string;
   finishEndpoint: string;
   backHref: string;
@@ -52,6 +53,7 @@ type Props = {
 
 export default function AttemptSession({
   segments,
+  badgeImage,
   startEndpoint,
   finishEndpoint,
   backHref,
@@ -454,7 +456,16 @@ export default function AttemptSession({
             {result.completed !== undefined ? (
               result.completed ? (
                 <>
-                  <p className="animate-bounce text-6xl">🏅</p>
+                  {badgeImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={badgeImage}
+                      alt=""
+                      className="h-32 w-32 animate-bounce object-contain"
+                    />
+                  ) : (
+                    <p className="animate-bounce text-6xl">🏅</p>
+                  )}
                   <h2 className="text-2xl font-bold">Badge earned!</h2>
                   <p className="text-center text-white/70">
                     {multi

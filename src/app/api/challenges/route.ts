@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { handleRouteError, jsonError } from "@/lib/api";
 import { MAX_ACTIVE_CHALLENGES, MAX_SEGMENTS } from "@/lib/limits";
+import { isValidBadgeSprite } from "@/lib/badges";
 
 const segmentSchema = z
   .object({
@@ -21,6 +22,10 @@ const segmentSchema = z
 const createSchema = z.object({
   title: z.string().trim().min(3).max(80),
   description: z.string().trim().max(500),
+  badgeSprite: z
+    .string()
+    .refine(isValidBadgeSprite, { message: "Unknown badge art" })
+    .optional(),
   segments: z.array(segmentSchema).min(1).max(MAX_SEGMENTS),
 });
 
@@ -86,6 +91,7 @@ export async function POST(request: Request) {
       data: {
         title: data.title,
         description: data.description,
+        badgeSprite: data.badgeSprite,
         createdById: user.id,
         segments: {
           create: data.segments.map((segment, index) => ({

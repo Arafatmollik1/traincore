@@ -9,6 +9,7 @@ import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import ShareButton from "@/components/ShareButton";
 import AnimatedStickFigure from "@/components/AnimatedStickFigure";
+import { badgeSpriteUrl } from "@/lib/badges";
 
 export const metadata = { title: "Challenge" };
 
@@ -232,20 +233,44 @@ export default async function ChallengeDetailPage({
       </section>
 
       {myCompletion ? (
-        <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-center">
-          <p className="text-2xl">🏅</p>
+        <div className="flex flex-col items-center rounded-2xl border border-accent/40 bg-accent/10 p-4 text-center">
+          {challenge.badgeSprite ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={badgeSpriteUrl(challenge.badgeSprite)}
+              alt=""
+              className="h-24 w-24 object-contain"
+            />
+          ) : (
+            <p className="text-2xl">🏅</p>
+          )}
           <p className="mt-1 font-semibold">Badge earned!</p>
           <p className="text-sm text-foreground/60">
             You did {myCompletion.reps} reps {formatRelativeTime(myCompletion.completedAt)}.
           </p>
         </div>
       ) : archived ? null : (
-        <Link
-          href={`/challenges/${challenge.id}/attempt`}
-          className="rounded-xl bg-accent px-4 py-4 text-center text-lg font-bold text-accent-foreground transition active:scale-95"
-        >
-          Attempt with camera 📷
-        </Link>
+        <div className="flex flex-col gap-3">
+          {challenge.badgeSprite && (
+            <div className="flex items-center justify-center gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={badgeSpriteUrl(challenge.badgeSprite)}
+                alt=""
+                className="h-16 w-16 object-contain"
+              />
+              <p className="text-sm text-foreground/60">
+                Finish this challenge to earn the badge
+              </p>
+            </div>
+          )}
+          <Link
+            href={`/challenges/${challenge.id}/attempt`}
+            className="rounded-xl bg-accent px-4 py-4 text-center text-lg font-bold text-accent-foreground transition active:scale-95"
+          >
+            Attempt with camera 📷
+          </Link>
+        </div>
       )}
 
       <section className="flex flex-col gap-2">

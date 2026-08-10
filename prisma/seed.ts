@@ -51,6 +51,7 @@ async function main() {
       targetReps: 50,
       timeLimitSeconds: 300,
       featuredAt: now,
+      badgeSprite: "sprite_0002.png",
     },
     {
       id: "seed-challenge-squat",
@@ -60,6 +61,7 @@ async function main() {
       targetReps: 100,
       timeLimitSeconds: 600,
       featuredAt: null,
+      badgeSprite: "sprite_0003.png",
     },
     {
       id: "seed-challenge-jj",
@@ -69,16 +71,18 @@ async function main() {
       targetReps: 60,
       timeLimitSeconds: 120,
       featuredAt: null,
+      badgeSprite: "sprite_0004.png",
     },
   ];
   for (const challenge of singleChallenges) {
     await prisma.challenge.upsert({
       where: { id: challenge.id },
-      update: {},
+      update: { badgeSprite: challenge.badgeSprite },
       create: {
         id: challenge.id,
         title: challenge.title,
         description: challenge.description,
+        badgeSprite: challenge.badgeSprite,
         featuredAt: challenge.featuredAt,
         createdById: admin.id,
         segments: {
@@ -98,10 +102,11 @@ async function main() {
   // Multi-exercise circuit — includes a duplicate exercise (pushups twice).
   await prisma.challenge.upsert({
     where: { id: "seed-challenge-circuit" },
-    update: {},
+    update: { badgeSprite: "sprite_0001.png" },
     create: {
       id: "seed-challenge-circuit",
       title: "Full-body starter circuit",
+      badgeSprite: "sprite_0001.png",
       description:
         "Four rounds, one badge: pushups, squats, a second pushup set, then sit-ups. Rest between rounds is built in.",
       createdById: admin.id,
@@ -164,10 +169,11 @@ async function main() {
   });
   await prisma.challenge.upsert({
     where: { id: "seed-challenge-arm-raises" },
-    update: {},
+    update: { badgeSprite: "sprite_0000.png" },
     create: {
       id: "seed-challenge-arm-raises",
       title: "30 arm raises, no rest",
+      badgeSprite: "sprite_0000.png",
       description:
         "A community-made exercise: raise both arms overhead and back down. Thirty in three minutes.",
       createdById: coach.id,
