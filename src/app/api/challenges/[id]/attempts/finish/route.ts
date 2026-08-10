@@ -4,11 +4,19 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { handleRouteError, jsonError } from "@/lib/api";
 import { assertPlausible, consumeToken, MAX_RPM } from "@/lib/anticheat";
+import { MAX_SEGMENTS } from "@/lib/limits";
 
 const bodySchema = z.object({
   tokenId: z.string().min(1),
-  reps: z.number().int().min(0).max(100_000),
-  durationSeconds: z.number().int().min(0).max(100_000),
+  segments: z
+    .array(
+      z.object({
+        reps: z.number().int().min(0).max(100_000),
+        durationSeconds: z.number().int().min(0).max(100_000),
+      }),
+    )
+    .min(1)
+    .max(MAX_SEGMENTS),
 });
 
 export async function POST(
@@ -22,9 +30,17 @@ export async function POST(
 
     const challenge = await prisma.challenge.findUnique({
       where: { id },
-      include: { customExercise: { select: { maxRpm: true } } },
+      include: {
+        segments: {
+          orderBy: { order: "asc" },
+          include: { customExercise: { select: { maxRpm: true } } },
+        },
+      },
     });
     if (!challenge) return jsonError(404, "Challenge not found");
+    if (body.segments.length > challenge.segments.length) {
+      return jsonError(400, "Too many segment results");
+    }
 
     const { elapsedSeconds } = await consumeToken({
       tokenId: body.tokenId,
@@ -33,14 +49,33 @@ export async function POST(
       challengeId: id,
     });
 
-    // Never trust the client clock: use the smaller of claimed vs server time.
-    const duration = Math.min(body.durationSeconds || elapsedSeconds, elapsedSeconds);
-    const maxRpm = challenge.exercise
-      ? MAX_RPM[challenge.exercise]
-      : (challenge.customExercise?.maxRpm ?? 60);
-    assertPlausible(maxRpm, body.reps, duration);
+    // Per-segment plausibility; total claimed time can never exceed the
+    // server-measured elapsed time.
+    let claimedTotal = 0;
+    body.segments.forEach((result, index) => {
+      const segment = challenge.segments[index];
+      const duration = Math.min(
+        result.durationSeconds || segment.timeLimitSeconds,
+        segment.timeLimitSeconds,
+      );
+      claimedTotal += duration;
+      const maxRpm = segment.exercise
+        ? MAX_RPM[segment.exercise]
+        : (segment.customExercise?.maxRpm ?? 60);
+      assertPlausible(maxRpm, result.reps, duration);
+    });
+    if (claimedTotal > elapsedSeconds + 30) {
+      return jsonError(422, "Reported segment times don't add up");
+    }
 
-    const completed = body.reps >= challenge.targetReps;
+    // All-or-nothing: every segment must exist and hit its target.
+    const completed =
+      body.segments.length === challenge.segments.length &&
+      body.segments.every(
+        (result, index) => result.reps >= challenge.segments[index].targetReps,
+      );
+    const totalReps = body.segments.reduce((sum, result) => sum + result.reps, 0);
+
     if (completed) {
       await prisma.challengeCompletion.upsert({
         where: {
@@ -50,16 +85,20 @@ export async function POST(
         create: {
           challengeId: id,
           userId: user.id,
-          reps: body.reps,
-          durationSeconds: duration,
+          reps: totalReps,
+          durationSeconds: elapsedSeconds,
         },
       });
     }
 
     return NextResponse.json({
       completed,
-      reps: body.reps,
-      targetReps: challenge.targetReps,
+      reps: totalReps,
+      targetReps: challenge.segments.reduce((sum, s) => sum + s.targetReps, 0),
+      segmentsCompleted: body.segments.filter(
+        (result, index) => result.reps >= (challenge.segments[index]?.targetReps ?? Infinity),
+      ).length,
+      segmentsTotal: challenge.segments.length,
     });
   } catch (error) {
     return handleRouteError(error);

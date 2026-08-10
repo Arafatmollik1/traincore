@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { challengeExerciseInfo } from "@/lib/exercises";
+import { challengeSummary } from "@/lib/exercises";
 import { MAX_ACTIVE_CHALLENGES } from "@/lib/limits";
 import { formatDuration } from "@/lib/format";
 import type { Prisma } from "@prisma/client";
@@ -11,7 +11,10 @@ export const metadata = { title: "Challenges" };
 
 const cardInclude = {
   createdBy: { select: { displayName: true } },
-  customExercise: { select: { name: true, emoji: true } },
+  segments: {
+    orderBy: { order: "asc" as const },
+    include: { customExercise: { select: { name: true, emoji: true } } },
+  },
   _count: { select: { completions: true } },
 } satisfies Prisma.ChallengeInclude;
 
@@ -202,16 +205,18 @@ function FeaturedCard({
   challenge: ChallengeCard;
   done: boolean;
 }) {
-  const info = challengeExerciseInfo(challenge);
+  const summary = challengeSummary(challenge.segments);
   return (
     <Link
       href={`/challenges/${challenge.id}`}
       className="w-60 shrink-0 snap-start rounded-2xl border border-accent/40 bg-accent/5 p-4 transition hover:border-accent"
     >
-      <p className="text-2xl">{info.emoji}</p>
+      <p className="text-2xl">{summary.emoji}</p>
       <p className="mt-1 line-clamp-2 font-semibold leading-snug">{challenge.title}</p>
       <p className="mt-1 text-xs text-foreground/50">
-        {challenge.targetReps} reps · {formatDuration(challenge.timeLimitSeconds)}
+        {summary.count > 1
+          ? `${summary.count} exercises · ${summary.totalReps} reps`
+          : `${summary.totalReps} reps · ${formatDuration(summary.totalSeconds)}`}
         {done && " · ✓ done"}
       </p>
     </Link>
@@ -232,7 +237,7 @@ function CardList({
   return (
     <ul className="flex flex-col gap-3">
       {challenges.map((challenge) => {
-        const info = challengeExerciseInfo(challenge);
+        const summary = challengeSummary(challenge.segments);
         const done = completedIds.has(challenge.id);
         const archived = Boolean(challenge.archivedAt);
         const weekly = weeklyCounts?.get(challenge.id);
@@ -245,7 +250,7 @@ function CardList({
               }`}
             >
               <span className="text-3xl" aria-hidden>
-                {info.emoji}
+                {summary.emoji}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
@@ -262,8 +267,10 @@ function CardList({
                   )}
                 </span>
                 <span className="mt-0.5 block text-xs text-foreground/50">
-                  {challenge.targetReps} reps in {formatDuration(challenge.timeLimitSeconds)} ·{" "}
-                  by {challenge.createdBy.displayName ?? "unknown"} ·{" "}
+                  {summary.count > 1
+                    ? `${summary.count} exercises · ${summary.totalReps} reps`
+                    : `${summary.totalReps} reps in ${formatDuration(summary.totalSeconds)}`}{" "}
+                  · by {challenge.createdBy.displayName ?? "unknown"} ·{" "}
                   {weekly !== undefined
                     ? `${weekly} this week`
                     : `${challenge._count.completions} completed`}

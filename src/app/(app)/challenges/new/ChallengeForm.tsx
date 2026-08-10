@@ -5,12 +5,25 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ExerciseType } from "@prisma/client";
 import { EXERCISES, EXERCISE_TYPES } from "@/lib/exercises";
+import { MAX_SEGMENTS } from "@/lib/limits";
 
 type CustomExerciseOption = { id: string; name: string; emoji: string };
 
-type Selection =
-  | { kind: "builtin"; exercise: ExerciseType }
-  | { kind: "custom"; id: string };
+type SegmentDraft = {
+  selection:
+    | { kind: "builtin"; exercise: ExerciseType }
+    | { kind: "custom"; id: string };
+  targetReps: number;
+  timeLimitMinutes: number;
+  restAfterSeconds: number;
+};
+
+const DEFAULT_SEGMENT: SegmentDraft = {
+  selection: { kind: "builtin", exercise: "PUSHUP" },
+  targetReps: 20,
+  timeLimitMinutes: 5,
+  restAfterSeconds: 30,
+};
 
 export default function ChallengeForm({
   customExercises,
@@ -22,15 +35,19 @@ export default function ChallengeForm({
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [selection, setSelection] = useState<Selection>(
+  const [segments, setSegments] = useState<SegmentDraft[]>([
     preselectCustomId && customExercises.some((e) => e.id === preselectCustomId)
-      ? { kind: "custom", id: preselectCustomId }
-      : { kind: "builtin", exercise: "PUSHUP" },
-  );
-  const [targetReps, setTargetReps] = useState(20);
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState(5);
+      ? { ...DEFAULT_SEGMENT, selection: { kind: "custom", id: preselectCustomId } }
+      : DEFAULT_SEGMENT,
+  ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function updateSegment(index: number, patch: Partial<SegmentDraft>) {
+    setSegments((current) =>
+      current.map((segment, i) => (i === index ? { ...segment, ...patch } : segment)),
+    );
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -43,11 +60,14 @@ export default function ChallengeForm({
         body: JSON.stringify({
           title,
           description,
-          ...(selection.kind === "builtin"
-            ? { exercise: selection.exercise }
-            : { customExerciseId: selection.id }),
-          targetReps,
-          timeLimitSeconds: timeLimitMinutes * 60,
+          segments: segments.map((segment) => ({
+            ...(segment.selection.kind === "builtin"
+              ? { exercise: segment.selection.exercise }
+              : { customExerciseId: segment.selection.id }),
+            targetReps: segment.targetReps,
+            timeLimitSeconds: segment.timeLimitMinutes * 60,
+            restAfterSeconds: segment.restAfterSeconds,
+          })),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -61,7 +81,7 @@ export default function ChallengeForm({
   }
 
   const inputClass =
-    "rounded-xl border border-foreground/15 bg-background px-4 py-3 text-base outline-none transition focus:border-accent";
+    "rounded-xl border border-foreground/15 bg-background px-3 py-2.5 text-sm outline-none transition focus:border-accent";
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
@@ -73,8 +93,8 @@ export default function ChallengeForm({
           required
           minLength={3}
           maxLength={80}
-          placeholder="50 pushups in 5 minutes"
-          className={inputClass}
+          placeholder="Full-body blast"
+          className="rounded-xl border border-foreground/15 bg-background px-4 py-3 text-base outline-none transition focus:border-accent"
         />
       </label>
 
@@ -86,80 +106,156 @@ export default function ChallengeForm({
           maxLength={500}
           rows={3}
           placeholder="What should people know? Form cues, pacing tips…"
-          className={inputClass}
+          className="rounded-xl border border-foreground/15 bg-background px-4 py-3 text-base outline-none transition focus:border-accent"
         />
       </label>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium">Exercise</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {EXERCISE_TYPES.map((type) => (
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 text-sm font-medium">
+          Exercises · {segments.length}/{MAX_SEGMENTS}
+        </legend>
+
+        {segments.map((segment, index) => (
+          <div
+            key={index}
+            className="flex flex-col gap-3 rounded-2xl border border-foreground/10 p-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-foreground/40">
+                Exercise {index + 1}
+              </span>
+              {segments.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSegments((current) => current.filter((_, i) => i !== index))
+                  }
+                  className="text-xs font-medium text-red-500"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {EXERCISE_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() =>
+                    updateSegment(index, {
+                      selection: { kind: "builtin", exercise: type },
+                    })
+                  }
+                  aria-pressed={
+                    segment.selection.kind === "builtin" &&
+                    segment.selection.exercise === type
+                  }
+                  className={`flex items-center gap-2 rounded-xl border p-2.5 text-left text-sm font-medium transition ${
+                    segment.selection.kind === "builtin" &&
+                    segment.selection.exercise === type
+                      ? "border-accent bg-accent/10"
+                      : "border-foreground/15 hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="text-lg">{EXERCISES[type].emoji}</span>
+                  {EXERCISES[type].label}
+                </button>
+              ))}
+              {customExercises.map((exercise) => (
+                <button
+                  key={exercise.id}
+                  type="button"
+                  onClick={() =>
+                    updateSegment(index, {
+                      selection: { kind: "custom", id: exercise.id },
+                    })
+                  }
+                  aria-pressed={
+                    segment.selection.kind === "custom" &&
+                    segment.selection.id === exercise.id
+                  }
+                  className={`flex items-center gap-2 rounded-xl border p-2.5 text-left text-sm font-medium transition ${
+                    segment.selection.kind === "custom" &&
+                    segment.selection.id === exercise.id
+                      ? "border-accent bg-accent/10"
+                      : "border-foreground/15 hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="text-lg">{exercise.emoji}</span>
+                  <span className="min-w-0 truncate">{exercise.name}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-foreground/60">Reps</span>
+                <input
+                  type="number"
+                  value={segment.targetReps}
+                  onChange={(e) =>
+                    updateSegment(index, { targetReps: Number(e.target.value) })
+                  }
+                  min={1}
+                  max={1000}
+                  required
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-foreground/60">Limit (min)</span>
+                <input
+                  type="number"
+                  value={segment.timeLimitMinutes}
+                  onChange={(e) =>
+                    updateSegment(index, { timeLimitMinutes: Number(e.target.value) })
+                  }
+                  min={1}
+                  max={60}
+                  required
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-foreground/60">Rest after (s)</span>
+                <input
+                  type="number"
+                  value={segment.restAfterSeconds}
+                  onChange={(e) =>
+                    updateSegment(index, { restAfterSeconds: Number(e.target.value) })
+                  }
+                  min={0}
+                  max={600}
+                  step={5}
+                  required
+                  className={inputClass}
+                />
+              </label>
+            </div>
+          </div>
+        ))}
+
+        <div className="flex gap-2">
+          {segments.length < MAX_SEGMENTS && (
             <button
-              key={type}
               type="button"
-              onClick={() => setSelection({ kind: "builtin", exercise: type })}
-              aria-pressed={selection.kind === "builtin" && selection.exercise === type}
-              className={`flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-medium transition ${
-                selection.kind === "builtin" && selection.exercise === type
-                  ? "border-accent bg-accent/10"
-                  : "border-foreground/15 hover:border-foreground/30"
-              }`}
+              onClick={() =>
+                setSegments((current) => [...current, { ...DEFAULT_SEGMENT }])
+              }
+              className="flex-1 rounded-xl border border-dashed border-foreground/25 p-3 text-sm font-medium text-foreground/60 transition hover:border-foreground/50 hover:text-foreground"
             >
-              <span className="text-xl">{EXERCISES[type].emoji}</span>
-              {EXERCISES[type].label}
+              ＋ Add exercise
             </button>
-          ))}
-          {customExercises.map((exercise) => (
-            <button
-              key={exercise.id}
-              type="button"
-              onClick={() => setSelection({ kind: "custom", id: exercise.id })}
-              aria-pressed={selection.kind === "custom" && selection.id === exercise.id}
-              className={`flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-medium transition ${
-                selection.kind === "custom" && selection.id === exercise.id
-                  ? "border-accent bg-accent/10"
-                  : "border-foreground/15 hover:border-foreground/30"
-              }`}
-            >
-              <span className="text-xl">{exercise.emoji}</span>
-              <span className="min-w-0 truncate">{exercise.name}</span>
-            </button>
-          ))}
+          )}
           <Link
             href="/exercises/new"
-            className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-foreground/25 p-3 text-sm font-medium text-foreground/60 transition hover:border-foreground/50 hover:text-foreground"
+            className="flex-1 rounded-xl border border-dashed border-foreground/25 p-3 text-center text-sm font-medium text-foreground/60 transition hover:border-foreground/50 hover:text-foreground"
           >
             ＋ Custom exercise
           </Link>
         </div>
       </fieldset>
-
-      <div className="grid grid-cols-2 gap-4">
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium">Target reps</span>
-          <input
-            type="number"
-            value={targetReps}
-            onChange={(e) => setTargetReps(Number(e.target.value))}
-            min={1}
-            max={1000}
-            required
-            className={inputClass}
-          />
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium">Time limit (min)</span>
-          <input
-            type="number"
-            value={timeLimitMinutes}
-            onChange={(e) => setTimeLimitMinutes(Number(e.target.value))}
-            min={1}
-            max={60}
-            required
-            className={inputClass}
-          />
-        </label>
-      </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 

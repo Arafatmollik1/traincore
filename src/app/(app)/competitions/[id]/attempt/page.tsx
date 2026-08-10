@@ -31,12 +31,17 @@ export default async function CompetitionAttemptPage({
 
   return (
     <AttemptSession
-      counterSpec={{ kind: "builtin", exercise: competition.exercise }}
-      label={info.label}
-      emoji={info.emoji}
-      description={info.description}
-      keyframes={BUILTIN_KEYFRAMES[competition.exercise]}
-      timeLimitSeconds={competition.attemptTimeLimitSeconds}
+      segments={[
+        {
+          counterSpec: { kind: "builtin", exercise: competition.exercise },
+          label: info.label,
+          emoji: info.emoji,
+          description: info.description,
+          keyframes: BUILTIN_KEYFRAMES[competition.exercise],
+          timeLimitSeconds: competition.attemptTimeLimitSeconds,
+          restAfterSeconds: 0,
+        },
+      ]}
       startEndpoint={`/api/competitions/${id}/attempts/start`}
       finishEndpoint={`/api/competitions/${id}/attempts/finish`}
       backHref={`/competitions/${id}`}

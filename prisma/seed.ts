@@ -41,7 +41,7 @@ async function main() {
     },
   });
 
-  const challenges = [
+  const singleChallenges = [
     {
       id: "seed-challenge-pushup",
       title: "50 pushups in 5 minutes",
@@ -59,6 +59,7 @@ async function main() {
       exercise: "SQUAT" as const,
       targetReps: 100,
       timeLimitSeconds: 600,
+      featuredAt: null,
     },
     {
       id: "seed-challenge-jj",
@@ -67,15 +68,53 @@ async function main() {
       exercise: "JUMPING_JACK" as const,
       targetReps: 60,
       timeLimitSeconds: 120,
+      featuredAt: null,
     },
   ];
-  for (const challenge of challenges) {
+  for (const challenge of singleChallenges) {
     await prisma.challenge.upsert({
       where: { id: challenge.id },
       update: {},
-      create: { ...challenge, createdById: admin.id },
+      create: {
+        id: challenge.id,
+        title: challenge.title,
+        description: challenge.description,
+        featuredAt: challenge.featuredAt,
+        createdById: admin.id,
+        segments: {
+          create: [
+            {
+              order: 0,
+              exercise: challenge.exercise,
+              targetReps: challenge.targetReps,
+              timeLimitSeconds: challenge.timeLimitSeconds,
+            },
+          ],
+        },
+      },
     });
   }
+
+  // Multi-exercise circuit — includes a duplicate exercise (pushups twice).
+  await prisma.challenge.upsert({
+    where: { id: "seed-challenge-circuit" },
+    update: {},
+    create: {
+      id: "seed-challenge-circuit",
+      title: "Full-body starter circuit",
+      description:
+        "Four rounds, one badge: pushups, squats, a second pushup set, then sit-ups. Rest between rounds is built in.",
+      createdById: admin.id,
+      segments: {
+        create: [
+          { order: 0, exercise: "PUSHUP", targetReps: 10, timeLimitSeconds: 120, restAfterSeconds: 30 },
+          { order: 1, exercise: "SQUAT", targetReps: 15, timeLimitSeconds: 120, restAfterSeconds: 30 },
+          { order: 2, exercise: "PUSHUP", targetReps: 5, timeLimitSeconds: 60, restAfterSeconds: 30 },
+          { order: 3, exercise: "SITUP", targetReps: 10, timeLimitSeconds: 120 },
+        ],
+      },
+    },
+  });
 
   // Two captured pose signatures: arms down at the sides, then arms overhead.
   const armRaises = await prisma.customExercise.upsert({
@@ -131,10 +170,17 @@ async function main() {
       title: "30 arm raises, no rest",
       description:
         "A community-made exercise: raise both arms overhead and back down. Thirty in three minutes.",
-      customExerciseId: armRaises.id,
-      targetReps: 30,
-      timeLimitSeconds: 180,
       createdById: coach.id,
+      segments: {
+        create: [
+          {
+            order: 0,
+            customExerciseId: armRaises.id,
+            targetReps: 30,
+            timeLimitSeconds: 180,
+          },
+        ],
+      },
     },
   });
   await prisma.challenge.upsert({
@@ -144,11 +190,13 @@ async function main() {
       id: "seed-challenge-archived",
       title: "Old-school situp marathon",
       description: "Retired challenge kept for the history books.",
-      exercise: "SITUP",
-      targetReps: 40,
-      timeLimitSeconds: 600,
       archivedAt: now,
       createdById: athlete.id,
+      segments: {
+        create: [
+          { order: 0, exercise: "SITUP", targetReps: 40, timeLimitSeconds: 600 },
+        ],
+      },
     },
   });
 

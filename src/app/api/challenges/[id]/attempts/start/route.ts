@@ -11,7 +11,10 @@ export async function POST(
   try {
     const user = await requireUser();
     const { id } = await params;
-    const challenge = await prisma.challenge.findUnique({ where: { id } });
+    const challenge = await prisma.challenge.findUnique({
+      where: { id },
+      include: { segments: { select: { timeLimitSeconds: true, restAfterSeconds: true } } },
+    });
     if (!challenge) return jsonError(404, "Challenge not found");
     if (challenge.archivedAt) return jsonError(410, "This challenge has been archived");
 
@@ -20,11 +23,16 @@ export async function POST(
     });
     if (existing) return jsonError(409, "You already completed this challenge");
 
+    // Whole-circuit budget: every segment's limit + rests + transition buffer.
+    const totalSeconds = challenge.segments.reduce(
+      (sum, segment) => sum + segment.timeLimitSeconds + segment.restAfterSeconds,
+      challenge.segments.length * 10,
+    );
     const token = await issueToken({
       userId: user.id,
       kind: "CHALLENGE",
       challengeId: id,
-      timeLimitSeconds: challenge.timeLimitSeconds,
+      timeLimitSeconds: totalSeconds,
     });
     return NextResponse.json({ tokenId: token.id });
   } catch (error) {

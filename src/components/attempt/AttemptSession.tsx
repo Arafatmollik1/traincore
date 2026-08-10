@@ -10,29 +10,40 @@ import AnimatedStickFigure from "@/components/AnimatedStickFigure";
 type Stage =
   | "setup" // camera + model loading
   | "ready" // everything loaded, waiting for user
-  | "countdown"
+  | "countdown" // 3s go-countdown (start or between segments)
   | "active"
+  | "rest" // between segments
   | "submitting"
   | "result"
   | "error";
 
-export type AttemptResult = {
-  completed?: boolean;
-  reps: number;
-  targetReps?: number;
-  bestReps?: number;
-  isNewBest?: boolean;
-  rank?: number;
-};
-
-type Props = {
+export type SegmentSpec = {
   counterSpec: CounterSpec;
   label: string;
   emoji: string;
   description: string;
   keyframes?: StickFrame[];
-  timeLimitSeconds: number;
+  /** Undefined = open-ended (competitions): count as many as possible. */
   targetReps?: number;
+  timeLimitSeconds: number;
+  restAfterSeconds: number;
+};
+
+export type AttemptResult = {
+  completed?: boolean;
+  reps: number;
+  targetReps?: number;
+  segmentsCompleted?: number;
+  segmentsTotal?: number;
+  bestReps?: number;
+  isNewBest?: boolean;
+  rank?: number;
+};
+
+type SegmentOutcome = { reps: number; durationSeconds: number };
+
+type Props = {
+  segments: SegmentSpec[];
   startEndpoint: string;
   finishEndpoint: string;
   backHref: string;
@@ -40,13 +51,7 @@ type Props = {
 };
 
 export default function AttemptSession({
-  counterSpec,
-  label,
-  emoji,
-  description,
-  keyframes,
-  timeLimitSeconds,
-  targetReps,
+  segments,
   startEndpoint,
   finishEndpoint,
   backHref,
@@ -56,19 +61,32 @@ export default function AttemptSession({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
-  const counterRef = useRef(createRepCounter(counterSpec));
   const tokenRef = useRef<string | null>(null);
-  const startedAtRef = useRef(0);
+  const segmentIndexRef = useRef(0);
+  const counterRef = useRef(createRepCounter(segments[0].counterSpec));
+  const segmentStartedAtRef = useRef(0);
   const repsRef = useRef(0);
+  const outcomesRef = useRef<SegmentOutcome[]>([]);
+  const stageRef = useRef<Stage>("setup");
   const finishingRef = useRef(false);
 
-  const [stage, setStage] = useState<Stage>("setup");
+  const [stage, setStageState] = useState<Stage>("setup");
+  const [segmentIndex, setSegmentIndex] = useState(0);
   const [statusNote, setStatusNote] = useState("Requesting camera…");
   const [countdown, setCountdown] = useState(3);
+  const [restLeft, setRestLeft] = useState(0);
   const [live, setLive] = useState<RepUpdate>({ reps: 0, phase: "unknown", formHint: null });
-  const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
+  const [timeLeft, setTimeLeft] = useState(segments[0].timeLimitSeconds);
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const setStage = useCallback((next: Stage) => {
+    stageRef.current = next;
+    setStageState(next);
+  }, []);
+
+  const segment = segments[segmentIndex];
+  const multi = segments.length > 1;
 
   // Camera + model warmup on mount.
   useEffect(() => {
@@ -113,38 +131,108 @@ export default function AttemptSession({
       cancelAnimationFrame(rafRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const finish = useCallback(
-    async (finalReps: number) => {
-      if (finishingRef.current) return;
-      finishingRef.current = true;
-      cancelAnimationFrame(rafRef.current);
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      setStage("submitting");
-      try {
-        const durationSeconds = Math.round((performance.now() - startedAtRef.current) / 1000);
-        const res = await fetch(finishEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tokenId: tokenRef.current,
-            reps: finalReps,
-            durationSeconds,
-          }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.error ?? "Couldn't submit your attempt");
-        setResult({ reps: finalReps, ...data });
-        setStage("result");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't submit your attempt");
-        setStage("error");
-      }
+  const submitAll = useCallback(async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    setStage("submitting");
+    try {
+      const outcomes = outcomesRef.current;
+      const totals = outcomes.reduce(
+        (acc, outcome) => ({
+          reps: acc.reps + outcome.reps,
+          durationSeconds: acc.durationSeconds + outcome.durationSeconds,
+        }),
+        { reps: 0, durationSeconds: 0 },
+      );
+      const res = await fetch(finishEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokenId: tokenRef.current,
+          reps: totals.reps,
+          durationSeconds: totals.durationSeconds,
+          segments: outcomes,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Couldn't submit your attempt");
+      setResult({ reps: totals.reps, ...data });
+      setStage("result");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't submit your attempt");
+      setStage("error");
+    }
+  }, [finishEndpoint, setStage]);
+
+  /** Records the current segment's outcome; returns true if it hit target. */
+  const recordCurrentSegment = useCallback(() => {
+    const index = segmentIndexRef.current;
+    const durationSeconds = Math.round(
+      (performance.now() - segmentStartedAtRef.current) / 1000,
+    );
+    outcomesRef.current[index] = { reps: repsRef.current, durationSeconds };
+    const target = segments[index].targetReps;
+    return target === undefined || repsRef.current >= target;
+  }, [segments]);
+
+  const beginSegment = useCallback(
+    (index: number) => {
+      segmentIndexRef.current = index;
+      setSegmentIndex(index);
+      counterRef.current = createRepCounter(segments[index].counterSpec);
+      repsRef.current = 0;
+      setLive({ reps: 0, phase: "unknown", formHint: null });
+      setTimeLeft(segments[index].timeLimitSeconds);
+      segmentStartedAtRef.current = performance.now();
+      setStage("active");
     },
-    [finishEndpoint],
+    [segments, setStage],
   );
 
+  const goCountdown = useCallback(
+    async (thenSegment: number) => {
+      setStage("countdown");
+      for (let i = 3; i > 0; i--) {
+        setCountdown(i);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (finishingRef.current) return;
+      }
+      beginSegment(thenSegment);
+    },
+    [beginSegment, setStage],
+  );
+
+  const advanceFromSegment = useCallback(
+    async (hitTarget: boolean) => {
+      const index = segmentIndexRef.current;
+      const isLast = index === segments.length - 1;
+
+      // All-or-nothing: a missed target ends the whole attempt.
+      if (!hitTarget || isLast) {
+        void submitAll();
+        return;
+      }
+
+      const rest = segments[index].restAfterSeconds;
+      if (rest > 0) {
+        setStage("rest");
+        for (let left = rest; left > 0; left--) {
+          setRestLeft(left);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          if (finishingRef.current || stageRef.current !== "rest") return;
+        }
+      }
+      void goCountdown(index + 1);
+    },
+    [segments, goCountdown, setStage, submitAll],
+  );
+
+  // Detection loop — runs continuously; only counts while a segment is active.
   const runDetectionLoop = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -152,7 +240,7 @@ export default function AttemptSession({
 
     const tick = async () => {
       const landmarker = await getPoseLandmarker();
-      if (video.readyState >= 2) {
+      if (video.readyState >= 2 && stageRef.current === "active") {
         const tMs = performance.now();
         const detection = landmarker.detectForVideo(video, tMs);
         const landmarks = detection.landmarks?.[0];
@@ -170,15 +258,23 @@ export default function AttemptSession({
             };
         repsRef.current = update.reps;
         setLive(update);
-        if (targetReps && update.reps >= targetReps) {
-          void finish(update.reps);
-          return;
+
+        const target = segments[segmentIndexRef.current].targetReps;
+        if (target !== undefined && update.reps >= target) {
+          const hit = recordCurrentSegment();
+          void advanceFromSegment(hit);
+          if (stageRef.current !== "active") {
+            rafRef.current = requestAnimationFrame(() => void tick());
+            return;
+          }
         }
       }
-      rafRef.current = requestAnimationFrame(() => void tick());
+      if (!finishingRef.current) {
+        rafRef.current = requestAnimationFrame(() => void tick());
+      }
     };
     rafRef.current = requestAnimationFrame(() => void tick());
-  }, [finish, targetReps]);
+  }, [segments, recordCurrentSegment, advanceFromSegment]);
 
   const start = useCallback(async () => {
     try {
@@ -187,47 +283,44 @@ export default function AttemptSession({
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "Couldn't start the attempt");
       tokenRef.current = data.tokenId;
-
-      for (let i = 3; i > 0; i--) {
-        setCountdown(i);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-
-      counterRef.current.reset();
-      repsRef.current = 0;
+      outcomesRef.current = [];
       finishingRef.current = false;
-      startedAtRef.current = performance.now();
-      setLive({ reps: 0, phase: "unknown", formHint: null });
-      setTimeLeft(timeLimitSeconds);
-      setStage("active");
       runDetectionLoop();
+      await goCountdown(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't start the attempt");
       setStage("error");
     }
-  }, [runDetectionLoop, startEndpoint, timeLimitSeconds]);
+  }, [goCountdown, runDetectionLoop, setStage, startEndpoint]);
 
-  // Countdown timer while active.
+  // Per-segment timer.
   useEffect(() => {
     if (stage !== "active") return;
     const interval = setInterval(() => {
-      const elapsed = (performance.now() - startedAtRef.current) / 1000;
-      const left = Math.max(0, Math.ceil(timeLimitSeconds - elapsed));
+      const limit = segments[segmentIndexRef.current].timeLimitSeconds;
+      const elapsed = (performance.now() - segmentStartedAtRef.current) / 1000;
+      const left = Math.max(0, Math.ceil(limit - elapsed));
       setTimeLeft(left);
       if (left <= 0) {
         clearInterval(interval);
-        void finish(repsRef.current);
+        const hit = recordCurrentSegment();
+        void advanceFromSegment(hit);
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [stage, finish, timeLimitSeconds]);
+  }, [stage, segments, recordCurrentSegment, advanceFromSegment]);
+
+  function stopEarly() {
+    recordCurrentSegment();
+    void submitAll();
+  }
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
+  const nextSegment = segments[Math.min(segmentIndex + 1, segments.length - 1)];
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
-      {/* Camera stage */}
       <div className="relative flex-1 overflow-hidden">
         <video
           ref={videoRef}
@@ -240,7 +333,6 @@ export default function AttemptSession({
           className="absolute inset-0 h-full w-full -scale-x-100 object-cover"
         />
 
-        {/* Overlays per stage */}
         {stage === "setup" && (
           <Overlay>
             <Spinner />
@@ -250,16 +342,25 @@ export default function AttemptSession({
 
         {stage === "ready" && (
           <Overlay>
-            {keyframes && keyframes.length >= 2 ? (
-              <AnimatedStickFigure frames={keyframes} className="h-28 w-28 text-white" />
+            {segment.keyframes && segment.keyframes.length >= 2 ? (
+              <AnimatedStickFigure frames={segment.keyframes} className="h-28 w-28 text-white" />
             ) : (
-              <p className="text-4xl">{emoji}</p>
+              <p className="text-4xl">{segment.emoji}</p>
             )}
-            <h2 className="text-xl font-bold">{label}</h2>
-            <p className="max-w-xs text-center text-sm text-white/70">{description}</p>
+            <h2 className="text-xl font-bold">
+              {multi ? `${segments.length}-exercise circuit` : segment.label}
+            </h2>
+            <p className="max-w-xs text-center text-sm text-white/70">
+              {multi
+                ? `Starts with ${segment.label.toLowerCase()}. Complete every exercise to finish.`
+                : segment.description}
+            </p>
             <p className="text-sm text-white/70">
-              {targetReps ? `Target: ${targetReps} reps · ` : "As many reps as you can · "}
-              {Math.floor(timeLimitSeconds / 60)}:{String(timeLimitSeconds % 60).padStart(2, "0")} limit
+              {segment.targetReps
+                ? `First target: ${segment.targetReps} reps · `
+                : "As many reps as you can · "}
+              {Math.floor(segment.timeLimitSeconds / 60)}:
+              {String(segment.timeLimitSeconds % 60).padStart(2, "0")} limit
             </p>
             <button
               onClick={() => void start()}
@@ -272,7 +373,39 @@ export default function AttemptSession({
 
         {stage === "countdown" && (
           <Overlay transparent>
+            {multi && (
+              <p className="text-lg font-semibold text-white/90 drop-shadow">
+                {segment.emoji} {segment.label}
+              </p>
+            )}
             <p className="text-8xl font-black tabular-nums drop-shadow-lg">{countdown}</p>
+          </Overlay>
+        )}
+
+        {stage === "rest" && (
+          <Overlay>
+            <p className="text-sm uppercase tracking-wide text-white/60">Rest</p>
+            <p className="text-7xl font-black tabular-nums">{restLeft}</p>
+            <div className="mt-2 flex flex-col items-center gap-2">
+              <p className="text-sm text-white/70">Next up</p>
+              {nextSegment.keyframes && nextSegment.keyframes.length >= 2 ? (
+                <AnimatedStickFigure
+                  frames={nextSegment.keyframes}
+                  className="h-20 w-20 text-white"
+                />
+              ) : (
+                <p className="text-3xl">{nextSegment.emoji}</p>
+              )}
+              <p className="text-sm font-semibold">
+                {nextSegment.label} · {nextSegment.targetReps} reps
+              </p>
+            </div>
+            <button
+              onClick={() => void goCountdown(segmentIndexRef.current + 1)}
+              className="mt-3 rounded-full bg-white/15 px-6 py-2 text-sm font-semibold backdrop-blur transition active:scale-95"
+            >
+              Skip rest
+            </button>
           </Overlay>
         )}
 
@@ -280,13 +413,15 @@ export default function AttemptSession({
           <>
             <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
               <div className="rounded-2xl bg-black/50 px-4 py-2 backdrop-blur">
-                <p className="text-xs uppercase tracking-wide text-white/60">Time</p>
+                <p className="text-xs uppercase tracking-wide text-white/60">
+                  {multi ? `${segmentIndex + 1}/${segments.length} · ${segment.label}` : "Time"}
+                </p>
                 <p className={`text-2xl font-bold tabular-nums ${timeLeft <= 10 ? "text-red-400" : ""}`}>
                   {minutes}:{String(seconds).padStart(2, "0")}
                 </p>
               </div>
               <button
-                onClick={() => void finish(repsRef.current)}
+                onClick={stopEarly}
                 className="rounded-full bg-white/15 px-4 py-2 text-sm font-semibold backdrop-blur transition active:scale-95"
               >
                 Stop
@@ -301,7 +436,7 @@ export default function AttemptSession({
               )}
               <p className="text-8xl font-black tabular-nums drop-shadow-lg">{live.reps}</p>
               <p className="text-sm text-white/70">
-                {targetReps ? `of ${targetReps} reps` : "reps"}
+                {segment.targetReps ? `of ${segment.targetReps} reps` : "reps"}
               </p>
             </div>
           </>
@@ -321,15 +456,20 @@ export default function AttemptSession({
                 <>
                   <p className="animate-bounce text-6xl">🏅</p>
                   <h2 className="text-2xl font-bold">Badge earned!</h2>
-                  <p className="text-white/70">
-                    {result.reps} reps — challenge complete. It&apos;s on your profile now.
+                  <p className="text-center text-white/70">
+                    {multi
+                      ? `All ${result.segmentsTotal} exercises done — ${result.reps} total reps.`
+                      : `${result.reps} reps — challenge complete.`}{" "}
+                    It&apos;s on your profile now.
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-6xl">💪</p>
                   <h2 className="text-2xl font-bold">
-                    {result.reps} of {result.targetReps} reps
+                    {multi
+                      ? `${result.segmentsCompleted} of ${result.segmentsTotal} exercises`
+                      : `${result.reps} of ${result.targetReps} reps`}
                   </h2>
                   <p className="text-white/70">Not this time — rest up and go again.</p>
                 </>

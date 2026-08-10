@@ -31,22 +31,52 @@ export const EXERCISES: Record<ExerciseType, ExerciseInfo> = {
 
 export const EXERCISE_TYPES = Object.keys(EXERCISES) as ExerciseType[];
 
-type ChallengeExerciseFields = {
+type SegmentExerciseFields = {
   exercise: ExerciseType | null;
   customExercise?: { name: string; emoji: string } | null;
 };
 
-/** Display info for a challenge's exercise, built-in or custom. */
-export function challengeExerciseInfo(challenge: ChallengeExerciseFields): {
+/** Display info for one segment's exercise, built-in or custom. */
+export function segmentExerciseInfo(segment: SegmentExerciseFields): {
   label: string;
   emoji: string;
 } {
-  if (challenge.exercise) return EXERCISES[challenge.exercise];
-  if (challenge.customExercise) {
+  if (segment.exercise) return EXERCISES[segment.exercise];
+  if (segment.customExercise) {
     return {
-      label: challenge.customExercise.name,
-      emoji: challenge.customExercise.emoji,
+      label: segment.customExercise.name,
+      emoji: segment.customExercise.emoji,
     };
   }
   return { label: "Exercise", emoji: "🎯" };
+}
+
+type SummarySegment = SegmentExerciseFields & {
+  targetReps: number;
+  timeLimitSeconds: number;
+  restAfterSeconds: number;
+};
+
+/** Card-level summary of a challenge's segment list. */
+export function challengeSummary(segments: SummarySegment[]): {
+  emoji: string;
+  label: string;
+  totalReps: number;
+  totalSeconds: number;
+  count: number;
+} {
+  const first = segments[0];
+  const info = first
+    ? segmentExerciseInfo(first)
+    : { label: "Workout", emoji: "🎯" };
+  return {
+    emoji: info.emoji,
+    label: segments.length > 1 ? `${segments.length} exercises` : info.label,
+    totalReps: segments.reduce((sum, s) => sum + s.targetReps, 0),
+    totalSeconds: segments.reduce(
+      (sum, s) => sum + s.timeLimitSeconds + s.restAfterSeconds,
+      0,
+    ),
+    count: segments.length,
+  };
 }

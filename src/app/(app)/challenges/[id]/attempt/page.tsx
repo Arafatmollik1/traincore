@@ -1,11 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { challengeExerciseInfo, EXERCISES } from "@/lib/exercises";
-import type { CounterSpec } from "@/ml/repCounter";
+import { segmentExerciseInfo, EXERCISES } from "@/lib/exercises";
 import type { PoseSignature } from "@/ml/poseMatch";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
-import AttemptSession from "@/components/attempt/AttemptSession";
+import AttemptSession, { type SegmentSpec } from "@/components/attempt/AttemptSession";
 
 export const metadata = { title: "Attempt" };
 
@@ -18,9 +17,14 @@ export default async function ChallengeAttemptPage({
 
   const challenge = await prisma.challenge.findUnique({
     where: { id },
-    include: { customExercise: true },
+    include: {
+      segments: {
+        orderBy: { order: "asc" },
+        include: { customExercise: true },
+      },
+    },
   });
-  if (!challenge) notFound();
+  if (!challenge || challenge.segments.length === 0) notFound();
   if (challenge.archivedAt) redirect(`/challenges/${id}`);
 
   const done = await prisma.challengeCompletion.findUnique({
@@ -28,32 +32,34 @@ export default async function ChallengeAttemptPage({
   });
   if (done) redirect(`/challenges/${id}`);
 
-  const counterSpec: CounterSpec = challenge.exercise
-    ? { kind: "builtin", exercise: challenge.exercise }
-    : {
-        kind: "custom",
-        poses: challenge.customExercise!.poses as unknown as PoseSignature[],
-        minCycleMs: challenge.customExercise!.minCycleMs,
-      };
-  const info = challengeExerciseInfo(challenge);
-  const description = challenge.exercise
-    ? EXERCISES[challenge.exercise].description
-    : "Hit each captured pose in order — the camera tracks your movement cycle.";
-
-  const keyframes: StickFrame[] | undefined = challenge.exercise
-    ? BUILTIN_KEYFRAMES[challenge.exercise]
-    : ((challenge.customExercise?.keyframes as unknown as StickFrame[] | null) ??
-      undefined);
+  const segments: SegmentSpec[] = challenge.segments.map((segment) => {
+    const info = segmentExerciseInfo(segment);
+    return {
+      counterSpec: segment.exercise
+        ? { kind: "builtin" as const, exercise: segment.exercise }
+        : {
+            kind: "custom" as const,
+            poses: segment.customExercise!.poses as unknown as PoseSignature[],
+            minCycleMs: segment.customExercise!.minCycleMs,
+          },
+      label: info.label,
+      emoji: info.emoji,
+      description: segment.exercise
+        ? EXERCISES[segment.exercise].description
+        : "Hit each captured pose in order — the camera tracks your movement cycle.",
+      keyframes: segment.exercise
+        ? BUILTIN_KEYFRAMES[segment.exercise]
+        : ((segment.customExercise?.keyframes as unknown as StickFrame[] | null) ??
+          undefined),
+      targetReps: segment.targetReps,
+      timeLimitSeconds: segment.timeLimitSeconds,
+      restAfterSeconds: segment.restAfterSeconds,
+    };
+  });
 
   return (
     <AttemptSession
-      counterSpec={counterSpec}
-      label={info.label}
-      emoji={info.emoji}
-      description={description}
-      keyframes={keyframes}
-      timeLimitSeconds={challenge.timeLimitSeconds}
-      targetReps={challenge.targetReps}
+      segments={segments}
       startEndpoint={`/api/challenges/${id}/attempts/start`}
       finishEndpoint={`/api/challenges/${id}/attempts/finish`}
       backHref={`/challenges/${id}`}

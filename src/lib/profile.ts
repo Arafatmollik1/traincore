@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { challengeExerciseInfo } from "@/lib/exercises";
+import { challengeSummary } from "@/lib/exercises";
 import type { ProfileData } from "@/components/ProfileView";
 
 export async function loadProfile(userId: string): Promise<ProfileData | null> {
@@ -23,8 +23,16 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
         challenge: {
           select: {
             title: true,
-            exercise: true,
-            customExercise: { select: { name: true, emoji: true } },
+            segments: {
+              orderBy: { order: "asc" },
+              select: {
+                exercise: true,
+                targetReps: true,
+                timeLimitSeconds: true,
+                restAfterSeconds: true,
+                customExercise: { select: { name: true, emoji: true } },
+              },
+            },
           },
         },
       },
@@ -77,12 +85,12 @@ export async function loadProfile(userId: string): Promise<ProfileData | null> {
     isAdmin: user.isAdmin,
     joinedAt: user.createdAt,
     badges: completions.map((completion) => {
-      const info = challengeExerciseInfo(completion.challenge);
+      const summary = challengeSummary(completion.challenge.segments);
       return {
         id: completion.id,
         challengeTitle: completion.challenge.title,
-        label: info.label,
-        emoji: info.emoji,
+        label: summary.label,
+        emoji: summary.emoji,
         completedAt: completion.completedAt,
       };
     }),

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { challengeExerciseInfo } from "@/lib/exercises";
+import { challengeSummary, segmentExerciseInfo } from "@/lib/exercises";
 import { formatDuration } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import AnimatedStickFigure from "@/components/AnimatedStickFigure";
@@ -28,15 +28,22 @@ export default async function PublicChallengePage({
     where: { id },
     include: {
       createdBy: { select: { displayName: true } },
-      customExercise: { select: { name: true, emoji: true, keyframes: true } },
+      segments: {
+        orderBy: { order: "asc" },
+        include: {
+          customExercise: { select: { name: true, emoji: true, keyframes: true } },
+        },
+      },
       _count: { select: { completions: true } },
     },
   });
-  if (!challenge) notFound();
-  const info = challengeExerciseInfo(challenge);
-  const keyframes: StickFrame[] | null = challenge.exercise
-    ? BUILTIN_KEYFRAMES[challenge.exercise]
-    : ((challenge.customExercise?.keyframes as unknown as StickFrame[] | null) ?? null);
+  if (!challenge || challenge.segments.length === 0) notFound();
+
+  const summary = challengeSummary(challenge.segments);
+  const first = challenge.segments[0];
+  const keyframes: StickFrame[] | null = first.exercise
+    ? BUILTIN_KEYFRAMES[first.exercise]
+    : ((first.customExercise?.keyframes as unknown as StickFrame[] | null) ?? null);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-8 px-6 py-10 text-center">
@@ -49,26 +56,49 @@ export default async function PublicChallengePage({
           <AnimatedStickFigure frames={keyframes} className="h-32 w-32 text-accent" />
         ) : (
           <span className="text-5xl" aria-hidden>
-            {info.emoji}
+            {summary.emoji}
           </span>
         )}
         <h1 className="text-2xl font-bold leading-tight">{challenge.title}</h1>
         <p className="text-sm text-foreground/50">
-          {info.label} · by {challenge.createdBy.displayName ?? "unknown"}
+          {summary.label} · by {challenge.createdBy.displayName ?? "unknown"}
         </p>
         {challenge.description && (
           <p className="text-sm leading-relaxed text-foreground/70">
             {challenge.description}
           </p>
         )}
+
+        {challenge.segments.length > 1 && (
+          <ul className="mt-1 w-full text-left text-sm text-foreground/70">
+            {challenge.segments.map((segment, index) => {
+              const info = segmentExerciseInfo(segment);
+              return (
+                <li key={segment.id} className="flex items-center gap-2 py-1">
+                  <span className="w-4 text-xs font-bold text-foreground/40">
+                    {index + 1}
+                  </span>
+                  <span>{info.emoji}</span>
+                  <span className="min-w-0 flex-1 truncate">{info.label}</span>
+                  <span className="text-xs text-foreground/50">
+                    {segment.targetReps} reps
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
         <div className="mt-2 flex gap-6 text-sm">
           <div>
-            <p className="text-lg font-bold">{challenge.targetReps}</p>
-            <p className="text-xs text-foreground/50">target reps</p>
+            <p className="text-lg font-bold">{summary.totalReps}</p>
+            <p className="text-xs text-foreground/50">total reps</p>
           </div>
           <div>
-            <p className="text-lg font-bold">{formatDuration(challenge.timeLimitSeconds)}</p>
-            <p className="text-xs text-foreground/50">time limit</p>
+            <p className="text-lg font-bold">{formatDuration(summary.totalSeconds)}</p>
+            <p className="text-xs text-foreground/50">
+              {summary.count > 1 ? "incl. rests" : "time limit"}
+            </p>
           </div>
           <div>
             <p className="text-lg font-bold">{challenge._count.completions}</p>

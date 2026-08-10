@@ -75,32 +75,45 @@ model CustomExercise {
   createdById String
   createdAt   DateTime @default(now())
 
-  createdBy  User        @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  challenges Challenge[]
+  createdBy User               @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  segments  ChallengeSegment[]
 
   @@index([createdById])
 }
 
 model Challenge {
-  id               String        @id @default(cuid())
-  title            String
-  description      String
-  exercise         ExerciseType?
-  customExerciseId String?
-  targetReps       Int
-  timeLimitSeconds Int
-  featuredAt       DateTime?
-  archivedAt       DateTime?
-  createdById      String
-  createdAt        DateTime      @default(now())
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  featuredAt  DateTime?
+  archivedAt  DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
 
-  customExercise CustomExercise?       @relation(fields: [customExerciseId], references: [id])
-  createdBy      User                  @relation(fields: [createdById], references: [id])
-  completions    ChallengeCompletion[]
+  createdBy   User                  @relation(fields: [createdById], references: [id])
+  segments    ChallengeSegment[]
+  completions ChallengeCompletion[]
 
   @@index([createdById])
   @@index([archivedAt, createdAt(sort: Desc)])
   @@index([featuredAt(sort: Desc)])
+}
+
+model ChallengeSegment {
+  id               String        @id @default(cuid())
+  challengeId      String
+  order            Int
+  exercise         ExerciseType?
+  customExerciseId String?
+  targetReps       Int
+  timeLimitSeconds Int
+  restAfterSeconds Int           @default(0)
+
+  challenge      Challenge       @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  customExercise CustomExercise? @relation(fields: [customExerciseId], references: [id])
+
+  @@unique([challengeId, order])
+  @@index([customExerciseId])
 }
 
 model ChallengeCompletion {
