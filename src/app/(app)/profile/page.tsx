@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { loadProfile } from "@/lib/profile";
 import ProfileView from "@/components/ProfileView";
+import CoffeeLink from "@/components/CoffeeLink";
 
 export const metadata = { title: "Profile" };
 
@@ -13,9 +14,10 @@ export default async function ProfilePage() {
   if (!profile) redirect("/sign-in");
 
   return (
-    <ProfileView
-      profile={profile}
-      actions={
+    <div className="flex flex-col gap-8">
+      <ProfileView
+        profile={profile}
+        actions={
         <form
           action={async () => {
             "use server";
@@ -29,7 +31,9 @@ export default async function ProfilePage() {
             Sign out
           </button>
         </form>
-      }
-    />
+        }
+      />
+      <CoffeeLink />
+    </div>
   );
 }

@@ -7,6 +7,7 @@ import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import { badgeSpriteUrl } from "@/lib/badges";
 import AnimatedStickFigure from "@/components/AnimatedStickFigure";
+import CoffeeLink from "@/components/CoffeeLink";
 
 export const metadata = { title: "Challenge invite" };
 
@@ -162,6 +163,7 @@ export default async function PublicChallengePage({
         <p className="text-xs text-foreground/50">
           Free · the camera counts your reps on-device, no video ever leaves your phone
         </p>
+        <CoffeeLink />
       </div>
     </main>
   );

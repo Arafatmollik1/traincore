@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import CoffeeLink from "@/components/CoffeeLink";
 
 export const metadata = { title: "Sign in" };
 
@@ -36,6 +37,9 @@ export default async function SignInPage({
         <p className="mt-3 max-w-xs text-sm text-foreground/60">
           Challenges, competitions and community — with live AI rep counting.
           Completely free.
+        </p>
+        <p className="mt-2 text-xs text-foreground/40">
+          <CoffeeLink compact />
         </p>
       </div>
 
