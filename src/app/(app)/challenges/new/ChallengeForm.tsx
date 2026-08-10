@@ -68,7 +68,7 @@ export default function ChallengeForm({
               ? { exercise: segment.selection.exercise }
               : { customExerciseId: segment.selection.id }),
             targetReps: segment.targetReps,
-            timeLimitSeconds: segment.timeLimitMinutes * 60,
+            timeLimitSeconds: Math.round(segment.timeLimitMinutes * 60),
             restAfterSeconds: segment.restAfterSeconds,
           })),
         }),
@@ -214,8 +214,9 @@ export default function ChallengeForm({
                   onChange={(e) =>
                     updateSegment(index, { timeLimitMinutes: Number(e.target.value) })
                   }
-                  min={1}
+                  min={0.5}
                   max={60}
+                  step={0.5}
                   required
                   className={inputClass}
                 />

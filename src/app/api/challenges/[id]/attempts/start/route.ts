@@ -18,10 +18,7 @@ export async function POST(
     if (!challenge) return jsonError(404, "Challenge not found");
     if (challenge.archivedAt) return jsonError(410, "This challenge has been archived");
 
-    const existing = await prisma.challengeCompletion.findUnique({
-      where: { challengeId_userId: { challengeId: id, userId: user.id } },
-    });
-    if (existing) return jsonError(409, "You already completed this challenge");
+    // Repeat attempts are allowed — the badge is only ever awarded once.
 
     // Whole-circuit budget: every segment's limit + rests + transition buffer.
     const totalSeconds = challenge.segments.reduce(

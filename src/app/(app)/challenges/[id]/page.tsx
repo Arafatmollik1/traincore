@@ -248,6 +248,14 @@ export default async function ChallengeDetailPage({
           <p className="text-sm text-foreground/60">
             You did {myCompletion.reps} reps {formatRelativeTime(myCompletion.completedAt)}.
           </p>
+          {!archived && (
+            <Link
+              href={`/challenges/${challenge.id}/attempt`}
+              className="mt-3 rounded-full border border-foreground/20 px-5 py-2 text-sm font-semibold text-foreground/70 transition hover:bg-foreground/5 active:scale-95"
+            >
+              Attempt again 📷
+            </Link>
+          )}
         </div>
       ) : archived ? null : (
         <div className="flex flex-col gap-3">

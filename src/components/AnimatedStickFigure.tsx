@@ -10,9 +10,13 @@ import {
 
 const HOLD_MS = 550;
 const MOVE_MS = 500;
+const WATCHDOG_MS = 1200;
+const MAX_RESTARTS = 5;
 
 /** Loops through the pose keyframes with eased interpolation — a living
- *  demo of the movement, generated from data instead of an uploaded GIF. */
+ *  demo of the movement, generated from data instead of an uploaded GIF.
+ *  A watchdog restarts the animation loop (up to 5 times) if it stalls;
+ *  until the first frame renders, a pulsing placeholder is shown. */
 export default function AnimatedStickFigure({
   frames,
   className,
@@ -22,16 +26,25 @@ export default function AnimatedStickFigure({
 }) {
   // One shared bbox so the figure doesn't rescale between poses.
   const bbox = useMemo(() => framesBBox(frames), [frames]);
-  const [current, setCurrent] = useState<StickFrame>(frames[0]);
+  const [current, setCurrent] = useState<StickFrame | null>(null);
 
   useEffect(() => {
-    if (frames.length < 2) return;
+    if (frames.length < 2) {
+      setCurrent(frames[0] ?? null);
+      return;
+    }
+
     let raf = 0;
+    let disposed = false;
+    let restarts = 0;
+    let start = performance.now();
+    let lastTickAt = start;
     const stepMs = HOLD_MS + MOVE_MS;
     const cycleMs = stepMs * frames.length;
-    const start = performance.now();
 
     const tick = (now: number) => {
+      if (disposed) return;
+      lastTickAt = now;
       const inCycle = (now - start) % cycleMs;
       const step = Math.floor(inCycle / stepMs);
       const inStep = inCycle - step * stepMs;
@@ -46,9 +59,44 @@ export default function AnimatedStickFigure({
       }
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+
+    const begin = () => {
+      start = performance.now();
+      lastTickAt = start;
+      raf = requestAnimationFrame(tick);
+    };
+    begin();
+
+    // If the rAF loop never fires (or stalls), restart it a few times.
+    const watchdog = setInterval(() => {
+      if (disposed) return;
+      if (performance.now() - lastTickAt > WATCHDOG_MS) {
+        if (restarts < MAX_RESTARTS) {
+          restarts += 1;
+          cancelAnimationFrame(raf);
+          begin();
+        } else {
+          clearInterval(watchdog);
+          setCurrent((value) => value ?? frames[0]); // give up gracefully: static pose
+        }
+      }
+    }, WATCHDOG_MS);
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
+      clearInterval(watchdog);
+    };
   }, [frames]);
+
+  if (!current) {
+    return (
+      <div
+        className={`${className ?? ""} animate-pulse rounded-xl bg-foreground/10`}
+        aria-hidden
+      />
+    );
+  }
 
   const { segments, head } = stickGeometry(current, bbox);
   return (

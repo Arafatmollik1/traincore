@@ -28,11 +28,6 @@ export default async function ChallengeAttemptPage({
   if (!challenge || challenge.segments.length === 0) notFound();
   if (challenge.archivedAt) redirect(`/challenges/${id}`);
 
-  const done = await prisma.challengeCompletion.findUnique({
-    where: { challengeId_userId: { challengeId: id, userId: session.user.id } },
-  });
-  if (done) redirect(`/challenges/${id}`);
-
   const segments: SegmentSpec[] = challenge.segments.map((segment) => {
     const info = segmentExerciseInfo(segment);
     return {

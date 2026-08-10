@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { challengeSummary, segmentExerciseInfo } from "@/lib/exercises";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import { badgeSpriteUrl } from "@/lib/badges";
 import AnimatedStickFigure from "@/components/AnimatedStickFigure";
@@ -34,6 +34,11 @@ export default async function PublicChallengePage({
         include: {
           customExercise: { select: { name: true, emoji: true, keyframes: true } },
         },
+      },
+      completions: {
+        orderBy: { completedAt: "desc" },
+        take: 10,
+        include: { user: { select: { displayName: true } } },
       },
       _count: { select: { completions: true } },
     },
@@ -121,6 +126,29 @@ export default async function PublicChallengePage({
           <p className="mt-1 text-xs text-foreground/50">
             🗄️ This challenge has been archived — you can view it, but attempts are closed.
           </p>
+        )}
+
+        {challenge.completions.length > 0 && (
+          <div className="mt-2 w-full">
+            <p className="mb-1 text-left text-xs font-semibold uppercase tracking-wide text-foreground/40">
+              Recent finishers
+            </p>
+            <ul className="flex flex-col gap-1 text-left">
+              {challenge.completions.map((completion) => (
+                <li
+                  key={completion.id}
+                  className="flex items-center justify-between rounded-lg border border-foreground/10 px-3 py-1.5 text-sm"
+                >
+                  <span className="font-medium">
+                    {completion.user.displayName ?? "unknown"}
+                  </span>
+                  <span className="text-xs text-foreground/50">
+                    {completion.reps} reps · {formatRelativeTime(completion.completedAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 
