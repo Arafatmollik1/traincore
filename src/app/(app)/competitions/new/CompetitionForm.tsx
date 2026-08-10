@@ -20,7 +20,7 @@ export default function CompetitionForm() {
   const [exercise, setExercise] = useState<ExerciseType>("PUSHUP");
   const [startsAt, setStartsAt] = useState(toLocalInputValue(now));
   const [endsAt, setEndsAt] = useState(toLocalInputValue(inWeek));
-  const [attemptMinutes, setAttemptMinutes] = useState(3);
+  const [attemptMinutes, setAttemptMinutes] = useState<number | "">(3);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +38,7 @@ export default function CompetitionForm() {
           exercise,
           startsAt: new Date(startsAt).toISOString(),
           endsAt: new Date(endsAt).toISOString(),
-          attemptTimeLimitSeconds: attemptMinutes * 60,
+          attemptTimeLimitSeconds: Math.round(Number(attemptMinutes) * 60),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -129,7 +129,9 @@ export default function CompetitionForm() {
           <input
             type="number"
             value={attemptMinutes}
-            onChange={(e) => setAttemptMinutes(Number(e.target.value))}
+            onChange={(e) =>
+              setAttemptMinutes(e.target.value === "" ? "" : Number(e.target.value))
+            }
             min={1}
             max={60}
             required

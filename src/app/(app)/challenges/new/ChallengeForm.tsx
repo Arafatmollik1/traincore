@@ -10,14 +10,22 @@ import { BADGE_SPRITES, badgeSpriteUrl } from "@/lib/badges";
 
 type CustomExerciseOption = { id: string; name: string; emoji: string };
 
+// Numeric fields allow "" while editing so clearing the input doesn't
+// snap to a phantom 0 (the classic "020" controlled-number-input bug).
+type NumberField = number | "";
+
 type SegmentDraft = {
   selection:
     | { kind: "builtin"; exercise: ExerciseType }
     | { kind: "custom"; id: string };
-  targetReps: number;
-  timeLimitMinutes: number;
-  restAfterSeconds: number;
+  targetReps: NumberField;
+  timeLimitMinutes: NumberField;
+  restAfterSeconds: NumberField;
 };
+
+function parseField(value: string): NumberField {
+  return value === "" ? "" : Number(value);
+}
 
 const DEFAULT_SEGMENT: SegmentDraft = {
   selection: { kind: "builtin", exercise: "PUSHUP" },
@@ -67,9 +75,9 @@ export default function ChallengeForm({
             ...(segment.selection.kind === "builtin"
               ? { exercise: segment.selection.exercise }
               : { customExerciseId: segment.selection.id }),
-            targetReps: segment.targetReps,
-            timeLimitSeconds: Math.round(segment.timeLimitMinutes * 60),
-            restAfterSeconds: segment.restAfterSeconds,
+            targetReps: Number(segment.targetReps),
+            timeLimitSeconds: Math.round(Number(segment.timeLimitMinutes) * 60),
+            restAfterSeconds: Number(segment.restAfterSeconds),
           })),
         }),
       });
@@ -198,7 +206,7 @@ export default function ChallengeForm({
                   type="number"
                   value={segment.targetReps}
                   onChange={(e) =>
-                    updateSegment(index, { targetReps: Number(e.target.value) })
+                    updateSegment(index, { targetReps: parseField(e.target.value) })
                   }
                   min={1}
                   max={1000}
@@ -212,7 +220,7 @@ export default function ChallengeForm({
                   type="number"
                   value={segment.timeLimitMinutes}
                   onChange={(e) =>
-                    updateSegment(index, { timeLimitMinutes: Number(e.target.value) })
+                    updateSegment(index, { timeLimitMinutes: parseField(e.target.value) })
                   }
                   min={0.5}
                   max={60}
@@ -227,7 +235,7 @@ export default function ChallengeForm({
                   type="number"
                   value={segment.restAfterSeconds}
                   onChange={(e) =>
-                    updateSegment(index, { restAfterSeconds: Number(e.target.value) })
+                    updateSegment(index, { restAfterSeconds: parseField(e.target.value) })
                   }
                   min={0}
                   max={600}
