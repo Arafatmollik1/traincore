@@ -3,6 +3,7 @@ import { auth, signOut } from "@/auth";
 import { loadProfile } from "@/lib/profile";
 import ProfileView from "@/components/ProfileView";
 import CoffeeLink from "@/components/CoffeeLink";
+import { InstallRow } from "@/components/InstallApp";
 
 export const metadata = { title: "Profile" };
 
@@ -33,6 +34,7 @@ export default async function ProfilePage() {
         </form>
         }
       />
+      <InstallRow />
       <CoffeeLink />
     </div>
   );
