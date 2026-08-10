@@ -5,10 +5,11 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: traincore
-      POSTGRES_PASSWORD: traincore
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traincore}
       POSTGRES_DB: traincore
     ports:
-      - "5433:5432"
+      # Bound to localhost only — never expose Postgres publicly.
+      - "127.0.0.1:5433:5432"
     volumes:
       - traincore_pgdata:/var/lib/postgresql/data
 
