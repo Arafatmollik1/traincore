@@ -26,4 +26,10 @@ await sharp(rounded).resize(512, 512).png().toFile(path.join(outDir, "icon-512.p
 await sharp(square).resize(512, 512).png().toFile(path.join(outDir, "maskable-512.png"));
 await sharp(square).resize(180, 180).png().toFile(path.join(outDir, "apple-touch-icon.png"));
 
-console.log("Icons written to public/icons/");
+// Browser-tab favicon — src/app/icon.png is auto-served by Next.js.
+await sharp(rounded)
+  .resize(48, 48)
+  .png()
+  .toFile(path.join(outDir, "../../src/app/icon.png"));
+
+console.log("Icons written to public/icons/ and src/app/icon.png");
