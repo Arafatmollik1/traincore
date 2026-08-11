@@ -27,6 +27,7 @@ export const metadata: Metadata = {
     title: "traincore",
   },
   icons: {
+    icon: "/icon.png",
     apple: "/icons/apple-touch-icon.png",
   },
 };
