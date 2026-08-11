@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import BottomNav from "@/components/BottomNav";
+import NotificationPrompt from "@/components/NotificationPrompt";
 
 export default async function AppLayout({
   children,
@@ -42,6 +43,7 @@ export default async function AppLayout({
       <main className="flex-1 px-4 pb-28 pt-4">{children}</main>
 
       <BottomNav />
+      <NotificationPrompt />
     </div>
   );
 }

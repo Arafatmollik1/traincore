@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { EXERCISES } from "@/lib/exercises";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import Leaderboard from "@/components/Leaderboard";
+import ShareButton from "@/components/ShareButton";
 import EnterButton from "./EnterButton";
 
 export const metadata = { title: "Competition" };
@@ -36,9 +37,12 @@ export default async function CompetitionDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/competitions" className="text-sm text-foreground/50">
-          ‹ Competitions
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/competitions" className="text-sm text-foreground/50">
+            ‹ Competitions
+          </Link>
+          <ShareButton path={`/comp/${competition.id}`} title={competition.title} />
+        </div>
         <div className="mt-3 flex items-start gap-4">
           <span className="text-4xl" aria-hidden>
             {info.emoji}

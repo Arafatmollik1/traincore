@@ -69,7 +69,8 @@ function useInstallActions() {
   return { install, guideOpen, closeGuide: () => setGuideOpen(false) };
 }
 
-/** Dismissible bottom banner, shown app-wide until installed or snoozed. */
+/** Compact pill that slides down from the top — easy to dismiss, snoozes
+ *  for two weeks, gone forever once the app is installed. */
 export function InstallBanner() {
   const { env, canPrompt } = useInstallState();
   const { install, guideOpen, closeGuide } = useInstallActions();
@@ -85,35 +86,32 @@ export function InstallBanner() {
 
   return (
     <>
-      <div className="fixed inset-x-3 bottom-20 z-30 flex items-center gap-3 rounded-2xl border border-foreground/10 bg-background p-3.5 shadow-lg">
-        <span className="text-2xl" aria-hidden>
-          📲
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Install traincore</p>
-          <p className="text-xs text-foreground/60">
-            Full screen, on your home screen — like a real app.
-          </p>
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center px-3 pt-[max(0.625rem,env(safe-area-inset-top))]">
+        <div className="pointer-events-auto flex max-w-full animate-[banner-in_0.45s_ease-out] items-center gap-2.5 rounded-full border border-foreground/10 bg-background py-1.5 pl-4 pr-1.5 shadow-lg">
+          <span aria-hidden>📲</span>
+          <span className="truncate text-sm font-medium">Get the app</span>
+          <button
+            onClick={() => void install()}
+            className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 text-xs font-bold text-accent-foreground transition active:scale-95"
+          >
+            Install
+          </button>
+          <button
+            onClick={() => {
+              localStorage.setItem(
+                SNOOZE_KEY,
+                String(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000),
+              );
+              setSnoozed(true);
+            }}
+            className="shrink-0 rounded-full p-1.5 text-foreground/40 transition hover:text-foreground/70"
+            aria-label="Dismiss"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="h-3.5 w-3.5">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <button
-          onClick={() => void install()}
-          className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-bold text-accent-foreground transition active:scale-95"
-        >
-          Install
-        </button>
-        <button
-          onClick={() => {
-            localStorage.setItem(
-              SNOOZE_KEY,
-              String(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000),
-            );
-            setSnoozed(true);
-          }}
-          className="shrink-0 p-1 text-foreground/40"
-          aria-label="Dismiss"
-        >
-          ✕
-        </button>
       </div>
       {guideOpen && <InstallGuide ios={env.ios} onClose={closeGuide} />}
     </>
