@@ -3,12 +3,12 @@ import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 
 const APP_URL = process.env.APP_URL ?? "https://traincore.fun";
-const FROM = process.env.EMAIL_FROM ?? "traincore <info@traincore.fun>";
+const FROM = process.env.EMAIL_FROM ?? "traincore <arafat@traincore.fun>";
 const BATCH_SIZE = 100; // Resend batch endpoint maximum
 
 let resend: Resend | null = null;
 
-function client() {
+export function resendClient() {
   if (!process.env.RESEND_API_KEY) {
     throw new Error("RESEND_API_KEY is not set");
   }
@@ -86,7 +86,7 @@ function renderText(email: PromoEmail, userId: string) {
 /** Sends a promotional email to every user who hasn't opted out.
  *  Returns delivery counts. */
 export async function sendPromoToAllUsers(email: PromoEmail) {
-  const rs = client();
+  const rs = resendClient();
   const users = await prisma.user.findMany({
     where: { marketingOptOutAt: null },
     select: { id: true, email: true, displayName: true },
