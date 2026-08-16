@@ -17,7 +17,7 @@ function page(title: string, body: string, status = 200) {
   <body style="margin:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#171717;">
     <div style="max-width:420px;margin:15vh auto 0;padding:0 16px;">
       <div style="background:#ffffff;border-radius:16px;padding:32px 28px;text-align:center;">
-        <p style="margin:0 0 16px;font-size:20px;font-weight:800;">💪 traincore</p>
+        <p style="margin:0 0 16px;font-size:20px;font-weight:800;">train<span style="color:#16a34a;">core</span></p>
         <h1 style="margin:0 0 12px;font-size:18px;">${title}</h1>
         ${body}
       </div>

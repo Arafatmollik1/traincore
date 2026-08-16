@@ -64,12 +64,14 @@ function renderHtml(email: PromoEmail, recipientName: string | null, userId: str
   <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#171717;">
     <div style="max-width:520px;margin:0 auto;padding:24px 16px;">
       <div style="background:#ffffff;border-radius:16px;padding:32px 28px;">
-        <p style="margin:0 0 24px;font-size:20px;font-weight:800;">💪 traincore</p>
+        <p style="margin:0 0 24px;font-size:20px;font-weight:800;">train<span style="color:#16a34a;">core</span></p>
         ${greeting}
         ${paragraphs}
         ${cta}
       </div>
       <p style="margin:16px 8px;font-size:12px;color:#71717a;line-height:1.5;">
+        Questions or feedback? You can reply directly to this email — it reaches a real person.
+        <br />
         You're receiving this because you have a traincore account.
         <a href="${unsubscribeUrl(userId)}" style="color:#71717a;">Unsubscribe</a>
       </p>
@@ -80,7 +82,7 @@ function renderHtml(email: PromoEmail, recipientName: string | null, userId: str
 
 function renderText(email: PromoEmail, userId: string) {
   const link = email.url ? `\n\n${APP_URL}${email.url}` : "";
-  return `${email.body}${link}\n\n—\nYou're receiving this because you have a traincore account.\nUnsubscribe: ${unsubscribeUrl(userId)}`;
+  return `${email.body}${link}\n\n—\nQuestions or feedback? You can reply directly to this email — it reaches a real person.\nYou're receiving this because you have a traincore account.\nUnsubscribe: ${unsubscribeUrl(userId)}`;
 }
 
 /** Sends a promotional email to every user who hasn't opted out.
