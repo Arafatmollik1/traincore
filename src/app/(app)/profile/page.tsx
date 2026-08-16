@@ -7,6 +7,8 @@ import CoffeeLink from "@/components/CoffeeLink";
 import { InstallRow } from "@/components/InstallApp";
 import NotificationsToggle from "@/components/NotificationsToggle";
 import BroadcastComposer from "@/components/BroadcastComposer";
+import EmailPrefToggle from "@/components/EmailPrefToggle";
+import EmailBroadcastComposer from "@/components/EmailBroadcastComposer";
 
 export const metadata = { title: "Profile" };
 
@@ -17,9 +19,17 @@ export default async function ProfilePage() {
   const profile = await loadProfile(session.user.id);
   if (!profile) redirect("/sign-in");
 
-  const subscriberCount = profile.isAdmin
-    ? await prisma.pushSubscription.count()
-    : 0;
+  const emailPref = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { marketingOptOutAt: true },
+  });
+
+  const [subscriberCount, recipientCount] = profile.isAdmin
+    ? await Promise.all([
+        prisma.pushSubscription.count(),
+        prisma.user.count({ where: { marketingOptOutAt: null } }),
+      ])
+    : [0, 0];
 
   return (
     <div className="flex flex-col gap-8">
@@ -42,7 +52,9 @@ export default async function ProfilePage() {
         }
       />
       <NotificationsToggle />
+      <EmailPrefToggle initialSubscribed={emailPref?.marketingOptOutAt == null} />
       {profile.isAdmin && <BroadcastComposer subscriberCount={subscriberCount} />}
+      {profile.isAdmin && <EmailBroadcastComposer recipientCount={recipientCount} />}
       <InstallRow />
       <CoffeeLink />
     </div>

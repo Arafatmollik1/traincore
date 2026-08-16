@@ -28,6 +28,8 @@ model User {
   displayName   String?
   isAdmin       Boolean   @default(false)
   onboardedAt   DateTime?
+  /// Set when the user unsubscribes from promotional email; null = subscribed.
+  marketingOptOutAt DateTime?
   createdAt     DateTime  @default(now())
 
   accounts            Account[]
