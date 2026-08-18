@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import type { ExerciseType } from "@prisma/client";
+import { competitionScore } from "@/lib/exercises";
 
 type LeaderboardEntry = {
   rank: number;
@@ -15,10 +17,12 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 
 export default function Leaderboard({
   competitionId,
+  exercise,
   myUserId,
   live,
 }: {
   competitionId: string;
+  exercise: ExerciseType;
   myUserId: string;
   live: boolean;
 }) {
@@ -91,7 +95,7 @@ export default function Leaderboard({
               {isMe && <span className="text-foreground/50"> (you)</span>}
             </Link>
             <span className="shrink-0 text-sm font-bold tabular-nums">
-              {entry.bestReps > 0 ? `${entry.bestReps} reps` : "—"}
+              {entry.bestReps > 0 ? competitionScore(exercise, entry.bestReps) : "—"}
             </span>
           </li>
         );

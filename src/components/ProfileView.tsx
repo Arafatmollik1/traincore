@@ -1,5 +1,5 @@
 import BadgeGrid, { type BadgeItem } from "@/components/BadgeGrid";
-import { EXERCISES } from "@/lib/exercises";
+import { competitionScore, EXERCISES } from "@/lib/exercises";
 import type { ExerciseType } from "@prisma/client";
 
 export type CompetitionHistoryItem = {
@@ -87,7 +87,7 @@ export default function ProfileView({
                   </p>
                   <p className="text-xs text-foreground/50">
                     {item.finished ? "Finished" : "Live"} ·{" "}
-                    {item.bestReps} reps
+                    {competitionScore(item.exercise, item.bestReps)}
                   </p>
                 </div>
                 {item.rank !== null && (

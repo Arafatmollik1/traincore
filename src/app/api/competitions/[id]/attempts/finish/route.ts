@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { handleRouteError, jsonError } from "@/lib/api";
 import { assertPlausible, consumeToken, MAX_RPM } from "@/lib/anticheat";
+import { builtinKind } from "@/lib/exercises";
 
 const bodySchema = z.object({
   tokenId: z.string().min(1),
@@ -41,7 +42,14 @@ export async function POST(
     }
 
     const duration = Math.min(body.durationSeconds || elapsedSeconds, elapsedSeconds);
-    assertPlausible(MAX_RPM[competition.exercise], body.reps, duration);
+    if (builtinKind(competition.exercise) === "HOLD") {
+      // Score is seconds held — it can't exceed the server-timed attempt.
+      if (body.reps > elapsedSeconds) {
+        return jsonError(422, "That hold time doesn't look possible");
+      }
+    } else {
+      assertPlausible(MAX_RPM[competition.exercise], body.reps, duration);
+    }
 
     const now = new Date();
     const isNewBest = body.reps > entry.bestReps;

@@ -56,6 +56,18 @@ export function builtinKind(type: ExerciseType): ExerciseKind {
   return EXERCISES[type].kind;
 }
 
+/** Competition score display: "12 reps", or time held for hold exercises. */
+export function competitionScore(exercise: ExerciseType, value: number): string {
+  if (EXERCISES[exercise].kind === "HOLD") {
+    const minutes = Math.floor(value / 60);
+    const seconds = value % 60;
+    return minutes > 0
+      ? `${minutes}:${String(seconds).padStart(2, "0")} hold`
+      : `${seconds}s hold`;
+  }
+  return `${value} reps`;
+}
+
 type SegmentExerciseFields = {
   exercise: ExerciseType | null;
   customExercise?: { name: string; emoji: string } | null;

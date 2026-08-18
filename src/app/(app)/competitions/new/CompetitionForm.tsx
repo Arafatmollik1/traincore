@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ExerciseType } from "@prisma/client";
-import { EXERCISES, REP_EXERCISE_TYPES } from "@/lib/exercises";
+import { EXERCISES, EXERCISE_TYPES } from "@/lib/exercises";
 
 function toLocalInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -84,7 +84,7 @@ export default function CompetitionForm() {
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">Exercise</legend>
         <div className="grid grid-cols-2 gap-2">
-          {REP_EXERCISE_TYPES.map((type) => (
+          {EXERCISE_TYPES.map((type) => (
             <button
               key={type}
               type="button"
@@ -97,7 +97,12 @@ export default function CompetitionForm() {
               }`}
             >
               <span className="text-xl">{EXERCISES[type].emoji}</span>
-              {EXERCISES[type].label}
+              <span className="min-w-0 flex-1 truncate">{EXERCISES[type].label}</span>
+              {EXERCISES[type].kind === "HOLD" && (
+                <span className="shrink-0 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-foreground/50">
+                  ⏱ longest hold
+                </span>
+              )}
             </button>
           ))}
         </div>

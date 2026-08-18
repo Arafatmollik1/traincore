@@ -53,7 +53,7 @@ function createRunner(spec: SegmentSpec): Runner {
   if (spec.holdSpec) {
     return {
       type: "hold",
-      tracker: createHoldTracker(spec.holdSpec, spec.holdSeconds ?? 30),
+      tracker: createHoldTracker(spec.holdSpec, spec.holdSeconds ?? Infinity),
     };
   }
   return { type: "reps", counter: createRepCounter(spec.counterSpec!) };
@@ -69,10 +69,16 @@ function idleLive(spec: SegmentSpec): LiveUpdate {
     : { type: "reps", reps: 0, phase: "unknown", formHint: null };
 }
 
-/** "12 reps", "30s hold", or "max reps" for open-ended competition segments. */
+/** "12 reps", "30s hold", or the open-ended competition targets. */
 function targetLabel(spec: SegmentSpec): string {
-  if (spec.holdSpec) return `${spec.holdSeconds}s hold`;
+  if (spec.holdSpec) return spec.holdSeconds ? `${spec.holdSeconds}s hold` : "max hold";
   return spec.targetReps ? `${spec.targetReps} reps` : "max reps";
+}
+
+function holdScoreText(value: number): string {
+  const minutes = Math.floor(value / 60);
+  const seconds = value % 60;
+  return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, "0")} hold` : `${seconds}s hold`;
 }
 
 export type AttemptResult = {
@@ -193,7 +199,7 @@ export default function AttemptSession({
       const outcomes = outcomesRef.current;
       const totals = outcomes.reduce(
         (acc, outcome) => ({
-          reps: acc.reps + outcome.reps,
+          reps: acc.reps + (outcome.heldSeconds ?? outcome.reps),
           durationSeconds: acc.durationSeconds + outcome.durationSeconds,
         }),
         { reps: 0, durationSeconds: 0 },
@@ -426,7 +432,9 @@ export default function AttemptSession({
             </p>
             <p className="text-sm text-white/70">
               {segment.holdSpec
-                ? `First target: ${segment.holdSeconds}s hold · `
+                ? segment.holdSeconds
+                  ? `First target: ${segment.holdSeconds}s hold · `
+                  : "Hold as long as you can · "
                 : segment.targetReps
                   ? `First target: ${segment.targetReps} reps · `
                   : "As many reps as you can · "}
@@ -533,17 +541,21 @@ export default function AttemptSession({
                           : ""
                     }`}
                   >
-                    {Math.max(
-                      0,
-                      Math.ceil(((segment.holdSeconds ?? 0) * 1000 - live.heldMs) / 1000),
-                    )}
+                    {segment.holdSeconds
+                      ? Math.max(
+                          0,
+                          Math.ceil((segment.holdSeconds * 1000 - live.heldMs) / 1000),
+                        )
+                      : Math.floor(live.heldMs / 1000)}
                   </p>
                   <p className="text-sm text-white/70">
                     {live.state === "holding"
                       ? "holding — keep it up"
                       : live.state === "grace"
                         ? "clock paused — get back in!"
-                        : `hold for ${segment.holdSeconds}s`}
+                        : segment.holdSeconds
+                          ? `hold for ${segment.holdSeconds}s`
+                          : "hold as long as you can"}
                   </p>
                 </>
               ) : (
@@ -609,7 +621,8 @@ export default function AttemptSession({
               <>
                 <p className="text-6xl">{result.isNewBest ? "🎉" : "💪"}</p>
                 <h2 className="text-2xl font-bold">
-                  {result.reps} reps{result.isNewBest ? " — new personal best!" : ""}
+                  {segments[0].holdSpec ? holdScoreText(result.reps) : `${result.reps} reps`}
+                  {result.isNewBest ? " — new personal best!" : ""}
                 </h2>
                 {result.rank !== undefined && (
                   <p className="text-white/70">You&apos;re currently ranked #{result.rank}</p>

@@ -28,12 +28,17 @@ export default async function CompetitionAttemptPage({
   if (!entry) redirect(`/competitions/${id}`);
 
   const info = EXERCISES[competition.exercise];
+  const isHold = info.kind === "HOLD";
 
   return (
     <AttemptSession
       segments={[
         {
-          counterSpec: { kind: "builtin", exercise: competition.exercise },
+          // Hold competitions are open-ended: no holdSeconds target, the
+          // longest hold before losing the posture is the score.
+          ...(isHold
+            ? { holdSpec: { kind: "builtin" as const, exercise: competition.exercise } }
+            : { counterSpec: { kind: "builtin" as const, exercise: competition.exercise } }),
           label: info.label,
           emoji: info.emoji,
           description: info.description,

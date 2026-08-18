@@ -8,7 +8,7 @@ const createSchema = z
   .object({
     title: z.string().trim().min(3).max(80),
     description: z.string().trim().max(500),
-    exercise: z.enum(["PUSHUP", "SQUAT", "SITUP", "JUMPING_JACK"]),
+    exercise: z.enum(["PUSHUP", "SQUAT", "SITUP", "JUMPING_JACK", "PLANK", "WALL_SIT"]),
     startsAt: z.coerce.date(),
     endsAt: z.coerce.date(),
     attemptTimeLimitSeconds: z.number().int().min(30).max(3600),

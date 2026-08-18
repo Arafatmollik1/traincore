@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { EXERCISES } from "@/lib/exercises";
+import { competitionScore, EXERCISES } from "@/lib/exercises";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { BUILTIN_KEYFRAMES } from "@/lib/stick";
 import AnimatedStickFigure from "@/components/AnimatedStickFigure";
@@ -104,7 +104,7 @@ export default async function PublicCompetitionPage({
                     {MEDALS[index]} {entry.user.displayName ?? "unknown"}
                   </span>
                   <span className="text-xs text-foreground/50">
-                    {entry.bestReps} reps
+                    {competitionScore(competition.exercise, entry.bestReps)}
                   </span>
                 </li>
               ))}

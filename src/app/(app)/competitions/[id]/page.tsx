@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { EXERCISES } from "@/lib/exercises";
+import { competitionScore, EXERCISES } from "@/lib/exercises";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import Leaderboard from "@/components/Leaderboard";
 import ShareButton from "@/components/ShareButton";
@@ -91,7 +91,7 @@ export default async function CompetitionDetailPage({
             className="rounded-xl bg-accent px-4 py-4 text-center text-lg font-bold text-accent-foreground transition active:scale-95"
           >
             {myEntry.bestReps > 0
-              ? `Beat your ${myEntry.bestReps} reps 📷`
+              ? `Beat your ${competitionScore(competition.exercise, myEntry.bestReps)} 📷`
               : "Attempt with camera 📷"}
           </Link>
         ) : (
@@ -108,7 +108,7 @@ export default async function CompetitionDetailPage({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
           {finished ? "Final results" : "Leaderboard"}
         </h2>
-        <Leaderboard competitionId={competition.id} myUserId={userId} live={live} />
+        <Leaderboard competitionId={competition.id} exercise={competition.exercise} myUserId={userId} live={live} />
       </section>
     </div>
   );
