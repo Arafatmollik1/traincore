@@ -2,7 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createRepCounter, type CounterSpec, type RepUpdate } from "@/ml/repCounter";
+import {
+  createRepCounter,
+  type CounterSpec,
+  type RepCounter,
+  type RepUpdate,
+} from "@/ml/repCounter";
+import {
+  createHoldTracker,
+  type HoldSpec,
+  type HoldTracker,
+  type HoldUpdate,
+} from "@/ml/holdTracker";
 import { drawSkeleton, getPoseLandmarker } from "@/ml/pose";
 import type { StickFrame } from "@/lib/stick";
 import AnimatedStickFigure from "@/components/AnimatedStickFigure";
@@ -12,13 +23,18 @@ type Stage =
   | "ready" // everything loaded, waiting for user
   | "countdown" // 3s go-countdown (start or between segments)
   | "active"
+  | "missed" // brief "didn't make it" note before the next segment
   | "rest" // between segments
   | "submitting"
   | "result"
   | "error";
 
 export type SegmentSpec = {
-  counterSpec: CounterSpec;
+  /** Present on rep segments. */
+  counterSpec?: CounterSpec;
+  /** Present on hold segments, together with holdSeconds. */
+  holdSpec?: HoldSpec;
+  holdSeconds?: number;
   label: string;
   emoji: string;
   description: string;
@@ -28,6 +44,36 @@ export type SegmentSpec = {
   timeLimitSeconds: number;
   restAfterSeconds: number;
 };
+
+type Runner =
+  | { type: "reps"; counter: RepCounter }
+  | { type: "hold"; tracker: HoldTracker };
+
+function createRunner(spec: SegmentSpec): Runner {
+  if (spec.holdSpec) {
+    return {
+      type: "hold",
+      tracker: createHoldTracker(spec.holdSpec, spec.holdSeconds ?? 30),
+    };
+  }
+  return { type: "reps", counter: createRepCounter(spec.counterSpec!) };
+}
+
+type LiveUpdate =
+  | ({ type: "reps" } & RepUpdate)
+  | ({ type: "hold" } & HoldUpdate);
+
+function idleLive(spec: SegmentSpec): LiveUpdate {
+  return spec.holdSpec
+    ? { type: "hold", heldMs: 0, state: "finding", graceLeftMs: 0, formHint: null }
+    : { type: "reps", reps: 0, phase: "unknown", formHint: null };
+}
+
+/** "12 reps", "30s hold", or "max reps" for open-ended competition segments. */
+function targetLabel(spec: SegmentSpec): string {
+  if (spec.holdSpec) return `${spec.holdSeconds}s hold`;
+  return spec.targetReps ? `${spec.targetReps} reps` : "max reps";
+}
 
 export type AttemptResult = {
   completed?: boolean;
@@ -40,7 +86,7 @@ export type AttemptResult = {
   rank?: number;
 };
 
-type SegmentOutcome = { reps: number; durationSeconds: number };
+type SegmentOutcome = { reps: number; heldSeconds?: number; durationSeconds: number };
 
 type Props = {
   segments: SegmentSpec[];
@@ -65,9 +111,10 @@ export default function AttemptSession({
   const rafRef = useRef<number>(0);
   const tokenRef = useRef<string | null>(null);
   const segmentIndexRef = useRef(0);
-  const counterRef = useRef(createRepCounter(segments[0].counterSpec));
+  const runnerRef = useRef<Runner>(createRunner(segments[0]));
   const segmentStartedAtRef = useRef(0);
   const repsRef = useRef(0);
+  const heldMsRef = useRef(0);
   const outcomesRef = useRef<SegmentOutcome[]>([]);
   const stageRef = useRef<Stage>("setup");
   const finishingRef = useRef(false);
@@ -77,7 +124,7 @@ export default function AttemptSession({
   const [statusNote, setStatusNote] = useState("Requesting camera…");
   const [countdown, setCountdown] = useState(3);
   const [restLeft, setRestLeft] = useState(0);
-  const [live, setLive] = useState<RepUpdate>({ reps: 0, phase: "unknown", formHint: null });
+  const [live, setLive] = useState<LiveUpdate>(idleLive(segments[0]));
   const [timeLeft, setTimeLeft] = useState(segments[0].timeLimitSeconds);
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -174,11 +221,17 @@ export default function AttemptSession({
   /** Records the current segment's outcome; returns true if it hit target. */
   const recordCurrentSegment = useCallback(() => {
     const index = segmentIndexRef.current;
+    const spec = segments[index];
     const durationSeconds = Math.round(
       (performance.now() - segmentStartedAtRef.current) / 1000,
     );
+    if (spec.holdSpec) {
+      const heldSeconds = Math.floor(heldMsRef.current / 1000);
+      outcomesRef.current[index] = { reps: 0, heldSeconds, durationSeconds };
+      return heldSeconds >= (spec.holdSeconds ?? Infinity);
+    }
     outcomesRef.current[index] = { reps: repsRef.current, durationSeconds };
-    const target = segments[index].targetReps;
+    const target = spec.targetReps;
     return target === undefined || repsRef.current >= target;
   }, [segments]);
 
@@ -186,9 +239,10 @@ export default function AttemptSession({
     (index: number) => {
       segmentIndexRef.current = index;
       setSegmentIndex(index);
-      counterRef.current = createRepCounter(segments[index].counterSpec);
+      runnerRef.current = createRunner(segments[index]);
       repsRef.current = 0;
-      setLive({ reps: 0, phase: "unknown", formHint: null });
+      heldMsRef.current = 0;
+      setLive(idleLive(segments[index]));
       setTimeLeft(segments[index].timeLimitSeconds);
       segmentStartedAtRef.current = performance.now();
       setStage("active");
@@ -214,10 +268,16 @@ export default function AttemptSession({
       const index = segmentIndexRef.current;
       const isLast = index === segments.length - 1;
 
-      // All-or-nothing: a missed target ends the whole attempt.
-      if (!hitTarget || isLast) {
+      // A missed target no longer ends the run — the badge check happens
+      // server-side over all segments. Keep going, finish the circuit.
+      if (isLast) {
         void submitAll();
         return;
+      }
+      if (!hitTarget) {
+        setStage("missed");
+        await new Promise((resolve) => setTimeout(resolve, 2200));
+        if (finishingRef.current || stageRef.current !== "missed") return;
       }
 
       const rest = segments[index].restAfterSeconds;
@@ -251,23 +311,30 @@ export default function AttemptSession({
           canvas.height = video.videoHeight;
           void drawSkeleton(canvas, landmarks);
         }
-        const update = landmarks
-          ? counterRef.current.update(landmarks, tMs)
-          : {
-              reps: repsRef.current,
-              phase: "unknown" as const,
-              formHint: "Step back so the camera can see you",
-            };
-        repsRef.current = update.reps;
-        setLive(update);
+        const runner = runnerRef.current;
+        if (runner.type === "hold") {
+          const update = runner.tracker.update(landmarks ?? null, tMs);
+          heldMsRef.current = update.heldMs;
+          setLive({ type: "hold", ...update });
+          if (update.state === "done" || update.state === "failed") {
+            const hit = recordCurrentSegment();
+            void advanceFromSegment(hit);
+          }
+        } else {
+          const update = landmarks
+            ? runner.counter.update(landmarks, tMs)
+            : {
+                reps: repsRef.current,
+                phase: "unknown" as const,
+                formHint: "Step back so the camera can see you",
+              };
+          repsRef.current = update.reps;
+          setLive({ type: "reps", ...update });
 
-        const target = segments[segmentIndexRef.current].targetReps;
-        if (target !== undefined && update.reps >= target) {
-          const hit = recordCurrentSegment();
-          void advanceFromSegment(hit);
-          if (stageRef.current !== "active") {
-            rafRef.current = requestAnimationFrame(() => void tick());
-            return;
+          const target = segments[segmentIndexRef.current].targetReps;
+          if (target !== undefined && update.reps >= target) {
+            const hit = recordCurrentSegment();
+            void advanceFromSegment(hit);
           }
         }
       }
@@ -358,9 +425,11 @@ export default function AttemptSession({
                 : segment.description}
             </p>
             <p className="text-sm text-white/70">
-              {segment.targetReps
-                ? `First target: ${segment.targetReps} reps · `
-                : "As many reps as you can · "}
+              {segment.holdSpec
+                ? `First target: ${segment.holdSeconds}s hold · `
+                : segment.targetReps
+                  ? `First target: ${segment.targetReps} reps · `
+                  : "As many reps as you can · "}
               {Math.floor(segment.timeLimitSeconds / 60)}:
               {String(segment.timeLimitSeconds % 60).padStart(2, "0")} limit
             </p>
@@ -384,6 +453,14 @@ export default function AttemptSession({
           </Overlay>
         )}
 
+        {stage === "missed" && (
+          <Overlay>
+            <p className="text-5xl">😤</p>
+            <h2 className="text-xl font-bold">Didn&apos;t make that one</h2>
+            <p className="text-sm text-white/70">Keep going — finish the circuit strong.</p>
+          </Overlay>
+        )}
+
         {stage === "rest" && (
           <Overlay>
             <p className="text-sm uppercase tracking-wide text-white/60">Rest</p>
@@ -399,7 +476,7 @@ export default function AttemptSession({
                 <p className="text-3xl">{nextSegment.emoji}</p>
               )}
               <p className="text-sm font-semibold">
-                {nextSegment.label} · {nextSegment.targetReps} reps
+                {nextSegment.label} · {targetLabel(nextSegment)}
               </p>
             </div>
             <button
@@ -432,14 +509,51 @@ export default function AttemptSession({
 
             <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
               {live.formHint && (
-                <p className="rounded-full bg-amber-500/90 px-4 py-1.5 text-center text-sm font-medium text-black">
+                <p
+                  className={`rounded-full px-4 py-1.5 text-center text-sm font-medium text-black ${
+                    live.type === "hold" && live.state === "grace"
+                      ? "animate-pulse bg-amber-400"
+                      : "bg-amber-500/90"
+                  }`}
+                >
                   {live.formHint}
+                  {live.type === "hold" && live.state === "grace"
+                    ? ` ${Math.ceil(live.graceLeftMs / 1000)}`
+                    : ""}
                 </p>
               )}
-              <p className="text-8xl font-black tabular-nums drop-shadow-lg">{live.reps}</p>
-              <p className="text-sm text-white/70">
-                {segment.targetReps ? `of ${segment.targetReps} reps` : "reps"}
-              </p>
+              {live.type === "hold" ? (
+                <>
+                  <p
+                    className={`text-8xl font-black tabular-nums drop-shadow-lg ${
+                      live.state === "holding"
+                        ? "text-accent"
+                        : live.state === "grace"
+                          ? "text-amber-400"
+                          : ""
+                    }`}
+                  >
+                    {Math.max(
+                      0,
+                      Math.ceil(((segment.holdSeconds ?? 0) * 1000 - live.heldMs) / 1000),
+                    )}
+                  </p>
+                  <p className="text-sm text-white/70">
+                    {live.state === "holding"
+                      ? "holding — keep it up"
+                      : live.state === "grace"
+                        ? "clock paused — get back in!"
+                        : `hold for ${segment.holdSeconds}s`}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-8xl font-black tabular-nums drop-shadow-lg">{live.reps}</p>
+                  <p className="text-sm text-white/70">
+                    {segment.targetReps ? `of ${segment.targetReps} reps` : "reps"}
+                  </p>
+                </>
+              )}
             </div>
           </>
         )}
@@ -469,8 +583,10 @@ export default function AttemptSession({
                   <h2 className="text-2xl font-bold">Badge earned!</h2>
                   <p className="text-center text-white/70">
                     {multi
-                      ? `All ${result.segmentsTotal} exercises done — ${result.reps} total reps.`
-                      : `${result.reps} reps — challenge complete.`}{" "}
+                      ? `All ${result.segmentsTotal} exercises done${result.reps > 0 ? ` — ${result.reps} total reps` : ""}.`
+                      : result.reps > 0
+                        ? `${result.reps} reps — challenge complete.`
+                        : "Held it — challenge complete."}{" "}
                     It&apos;s on your profile now.
                   </p>
                 </>
@@ -480,9 +596,13 @@ export default function AttemptSession({
                   <h2 className="text-2xl font-bold">
                     {multi
                       ? `${result.segmentsCompleted} of ${result.segmentsTotal} exercises`
-                      : `${result.reps} of ${result.targetReps} reps`}
+                      : result.targetReps
+                        ? `${result.reps} of ${result.targetReps} reps`
+                        : "Didn't hold long enough"}
                   </h2>
-                  <p className="text-white/70">Not this time — rest up and go again.</p>
+                  <p className="text-white/70">
+                    Better luck next time — rest up and go again.
+                  </p>
                 </>
               )
             ) : (

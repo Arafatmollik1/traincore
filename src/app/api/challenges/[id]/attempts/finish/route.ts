@@ -12,12 +12,26 @@ const bodySchema = z.object({
     .array(
       z.object({
         reps: z.number().int().min(0).max(100_000),
+        heldSeconds: z.number().int().min(0).max(100_000).optional(),
         durationSeconds: z.number().int().min(0).max(100_000),
       }),
     )
     .min(1)
     .max(MAX_SEGMENTS),
 });
+
+type SegmentResult = z.infer<typeof bodySchema>["segments"][number];
+
+function segmentPassed(
+  segment: { targetReps: number | null; holdSeconds: number | null },
+  result: SegmentResult | undefined,
+): boolean {
+  if (!result) return false;
+  if (segment.holdSeconds != null) {
+    return (result.heldSeconds ?? 0) >= segment.holdSeconds;
+  }
+  return result.reps >= (segment.targetReps ?? Infinity);
+}
 
 export async function POST(
   request: Request,
@@ -52,18 +66,26 @@ export async function POST(
     // Per-segment plausibility; total claimed time can never exceed the
     // server-measured elapsed time.
     let claimedTotal = 0;
-    body.segments.forEach((result, index) => {
+    for (let index = 0; index < body.segments.length; index++) {
+      const result = body.segments[index];
       const segment = challenge.segments[index];
       const duration = Math.min(
         result.durationSeconds || segment.timeLimitSeconds,
         segment.timeLimitSeconds,
       );
       claimedTotal += duration;
-      const maxRpm = segment.exercise
-        ? MAX_RPM[segment.exercise]
-        : (segment.customExercise?.maxRpm ?? 60);
-      assertPlausible(maxRpm, result.reps, duration);
-    });
+      if (segment.holdSeconds != null) {
+        // Holds: you can't have held longer than the segment itself lasted.
+        if ((result.heldSeconds ?? 0) > duration) {
+          return jsonError(422, "That hold time doesn't look possible");
+        }
+      } else {
+        const maxRpm = segment.exercise
+          ? MAX_RPM[segment.exercise]
+          : (segment.customExercise?.maxRpm ?? 60);
+        assertPlausible(maxRpm, result.reps, duration);
+      }
+    }
     if (claimedTotal > elapsedSeconds + 30) {
       return jsonError(422, "Reported segment times don't add up");
     }
@@ -71,8 +93,8 @@ export async function POST(
     // All-or-nothing: every segment must exist and hit its target.
     const completed =
       body.segments.length === challenge.segments.length &&
-      body.segments.every(
-        (result, index) => result.reps >= challenge.segments[index].targetReps,
+      challenge.segments.every((segment, index) =>
+        segmentPassed(segment, body.segments[index]),
       );
     const totalReps = body.segments.reduce((sum, result) => sum + result.reps, 0);
 
@@ -94,9 +116,12 @@ export async function POST(
     return NextResponse.json({
       completed,
       reps: totalReps,
-      targetReps: challenge.segments.reduce((sum, s) => sum + s.targetReps, 0),
-      segmentsCompleted: body.segments.filter(
-        (result, index) => result.reps >= (challenge.segments[index]?.targetReps ?? Infinity),
+      targetReps: challenge.segments.reduce(
+        (sum, s) => sum + (s.targetReps ?? 0),
+        0,
+      ),
+      segmentsCompleted: challenge.segments.filter((segment, index) =>
+        segmentPassed(segment, body.segments[index]),
       ).length,
       segmentsTotal: challenge.segments.length,
     });

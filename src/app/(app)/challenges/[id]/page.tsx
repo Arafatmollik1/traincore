@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { challengeSummary, segmentExerciseInfo } from "@/lib/exercises";
+import { challengeSummary, segmentExerciseInfo, segmentTarget } from "@/lib/exercises";
 import { MAX_ACTIVE_CHALLENGES } from "@/lib/limits";
 import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
@@ -165,8 +165,16 @@ export default async function ChallengeDetailPage({
 
       <div className="grid grid-cols-3 gap-3 text-center">
         <div className="rounded-xl border border-foreground/10 p-3">
-          <p className="text-lg font-bold">{summary.totalReps}</p>
-          <p className="text-xs text-foreground/50">total reps</p>
+          <p className="text-lg font-bold">
+            {summary.totalReps > 0 ? summary.totalReps : `${summary.totalHoldSeconds}s`}
+          </p>
+          <p className="text-xs text-foreground/50">
+            {summary.totalReps > 0
+              ? summary.totalHoldSeconds > 0
+                ? "reps + holds"
+                : "total reps"
+              : "total hold"}
+          </p>
         </div>
         <div className="rounded-xl border border-foreground/10 p-3">
           <p className="text-lg font-bold">{formatDuration(summary.totalSeconds)}</p>
@@ -215,7 +223,7 @@ export default async function ChallengeDetailPage({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{segmentInfo.label}</p>
                   <p className="text-xs text-foreground/50">
-                    {segment.targetReps} reps · {formatDuration(segment.timeLimitSeconds)} limit
+                    {segmentTarget(segment)} · {formatDuration(segment.timeLimitSeconds)} limit
                     {segment.restAfterSeconds > 0 &&
                       index < challenge.segments.length - 1 &&
                       ` · then ${segment.restAfterSeconds}s rest`}

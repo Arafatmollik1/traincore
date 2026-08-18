@@ -2,12 +2,15 @@ import type { AttemptKind, AttemptToken, ExerciseType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { AuthzError } from "@/lib/authz";
 
-/** Generous ceilings on humanly-plausible reps per minute, per exercise. */
+/** Generous ceilings on humanly-plausible reps per minute, per exercise.
+ *  Hold exercises never go through the rep check — their entries are 0. */
 export const MAX_RPM: Record<ExerciseType, number> = {
   PUSHUP: 90,
   SQUAT: 80,
   SITUP: 60,
   JUMPING_JACK: 110,
+  PLANK: 0,
+  WALL_SIT: 0,
 };
 
 export const TOKEN_GRACE_SECONDS = 60;

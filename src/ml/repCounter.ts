@@ -96,5 +96,8 @@ export function createRepCounter(spec: CounterSpec): RepCounter {
       return new SitupCounter();
     case "JUMPING_JACK":
       return new JumpingJackCounter();
+    default:
+      // PLANK / WALL_SIT go through createHoldTracker instead.
+      throw new Error(`${spec.exercise} is not a rep exercise`);
   }
 }

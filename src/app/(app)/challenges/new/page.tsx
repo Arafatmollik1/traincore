@@ -21,7 +21,7 @@ export default async function NewChallengePage({
     prisma.customExercise.findMany({
       where: { createdById: session.user.id },
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, emoji: true },
+      select: { id: true, name: true, emoji: true, kind: true },
     }),
   ]);
 

@@ -183,9 +183,32 @@ const SITUP_CRUNCHED: StickFrame = [
   [0.73, 0.70], [0.73, 0.70],
 ];
 
+// Holds are a single frame — renderers fall back to the static figure.
+const PLANK_HOLD: StickFrame = [
+  [0.14, 0.40],
+  [0.24, 0.48], [0.24, 0.48],
+  [0.24, 0.62], [0.24, 0.62],
+  [0.34, 0.66], [0.34, 0.66],
+  [0.52, 0.50], [0.52, 0.50],
+  [0.70, 0.56], [0.70, 0.56],
+  [0.87, 0.62], [0.87, 0.62],
+];
+
+const WALL_SIT_HOLD: StickFrame = [
+  [0.55, 0.16],
+  [0.58, 0.28], [0.58, 0.28],
+  [0.56, 0.42], [0.56, 0.42],
+  [0.52, 0.52], [0.52, 0.52],
+  [0.58, 0.52], [0.58, 0.52],
+  [0.38, 0.52], [0.38, 0.52],
+  [0.38, 0.78], [0.38, 0.78],
+];
+
 export const BUILTIN_KEYFRAMES: Record<ExerciseType, StickFrame[]> = {
   PUSHUP: [PUSHUP_TOP, PUSHUP_BOTTOM],
   SQUAT: [JACK_CLOSED, SQUAT_DEEP],
   SITUP: [SITUP_LYING, SITUP_CRUNCHED],
   JUMPING_JACK: [JACK_CLOSED, JACK_OPEN],
+  PLANK: [PLANK_HOLD],
+  WALL_SIT: [WALL_SIT_HOLD],
 };

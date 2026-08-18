@@ -12,6 +12,13 @@ enum ExerciseType {
   SQUAT
   SITUP
   JUMPING_JACK
+  PLANK
+  WALL_SIT
+}
+
+enum ExerciseKind {
+  REPS
+  HOLD
 }
 
 enum AttemptKind {
@@ -81,9 +88,11 @@ model Account {
 }
 
 model CustomExercise {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
-  emoji       String   @default("🎯")
+  emoji       String       @default("🎯")
+  /// HOLD exercises store exactly one pose in `poses`; REPS store 2-4.
+  kind        ExerciseKind @default(REPS)
   poses       Json
   keyframes   Json?
   minCycleMs  Int      @default(600)
@@ -122,7 +131,9 @@ model ChallengeSegment {
   order            Int
   exercise         ExerciseType?
   customExerciseId String?
-  targetReps       Int
+  /// Exactly one of targetReps (rep exercise) or holdSeconds (hold exercise) is set.
+  targetReps       Int?
+  holdSeconds      Int?
   timeLimitSeconds Int
   restAfterSeconds Int           @default(0)
 

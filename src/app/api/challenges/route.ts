@@ -5,19 +5,36 @@ import { requireUser } from "@/lib/authz";
 import { handleRouteError, jsonError } from "@/lib/api";
 import { MAX_ACTIVE_CHALLENGES, MAX_SEGMENTS } from "@/lib/limits";
 import { isValidBadgeSprite } from "@/lib/badges";
+import { builtinKind } from "@/lib/exercises";
 
 const segmentSchema = z
   .object({
-    exercise: z.enum(["PUSHUP", "SQUAT", "SITUP", "JUMPING_JACK"]).optional(),
+    exercise: z
+      .enum(["PUSHUP", "SQUAT", "SITUP", "JUMPING_JACK", "PLANK", "WALL_SIT"])
+      .optional(),
     customExerciseId: z.string().optional(),
-    targetReps: z.number().int().min(1).max(1000),
+    targetReps: z.number().int().min(1).max(1000).optional(),
+    holdSeconds: z.number().int().min(5).max(600).optional(),
     timeLimitSeconds: z.number().int().min(30).max(3600),
     restAfterSeconds: z.number().int().min(0).max(600),
   })
   .refine((data) => Boolean(data.exercise) !== Boolean(data.customExerciseId), {
     message: "Each segment needs exactly one exercise",
     path: ["exercise"],
-  });
+  })
+  .refine((data) => (data.targetReps != null) !== (data.holdSeconds != null), {
+    message: "Each segment needs either a rep target or a hold target",
+    path: ["targetReps"],
+  })
+  .refine(
+    (data) =>
+      data.holdSeconds == null ||
+      data.timeLimitSeconds >= data.holdSeconds + 15,
+    {
+      message: "Give at least 15s on top of the hold to get into position",
+      path: ["timeLimitSeconds"],
+    },
+  );
 
 const createSchema = z.object({
   title: z.string().trim().min(3).max(80),
@@ -78,12 +95,30 @@ export async function POST(request: Request) {
           .filter((id): id is string => Boolean(id)),
       ),
     ];
+    const customKinds = new Map<string, "REPS" | "HOLD">();
     if (customIds.length > 0) {
-      const owned = await prisma.customExercise.count({
+      const owned = await prisma.customExercise.findMany({
         where: { id: { in: customIds }, createdById: user.id },
+        select: { id: true, kind: true },
       });
-      if (owned !== customIds.length) {
+      if (owned.length !== customIds.length) {
         return jsonError(400, "Unknown custom exercise");
+      }
+      for (const exercise of owned) customKinds.set(exercise.id, exercise.kind);
+    }
+
+    // The target type must match the exercise's kind (reps vs hold).
+    for (const segment of data.segments) {
+      const kind = segment.exercise
+        ? builtinKind(segment.exercise)
+        : customKinds.get(segment.customExerciseId!)!;
+      if ((kind === "HOLD") !== (segment.holdSeconds != null)) {
+        return jsonError(
+          400,
+          kind === "HOLD"
+            ? "Hold exercises need a hold target, not reps"
+            : "Rep exercises need a rep target, not a hold",
+        );
       }
     }
 
@@ -99,6 +134,7 @@ export async function POST(request: Request) {
             exercise: segment.exercise,
             customExerciseId: segment.customExerciseId,
             targetReps: segment.targetReps,
+            holdSeconds: segment.holdSeconds,
             timeLimitSeconds: segment.timeLimitSeconds,
             restAfterSeconds: segment.restAfterSeconds,
           })),

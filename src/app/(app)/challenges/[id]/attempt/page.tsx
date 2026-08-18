@@ -30,7 +30,36 @@ export default async function ChallengeAttemptPage({
 
   const segments: SegmentSpec[] = challenge.segments.map((segment) => {
     const info = segmentExerciseInfo(segment);
+    const isHold = segment.holdSeconds != null;
+    const base = {
+      label: info.label,
+      emoji: info.emoji,
+      description: segment.exercise
+        ? EXERCISES[segment.exercise].description
+        : isHold
+          ? "Get into your captured pose and hold it — the camera keeps the clock."
+          : "Hit each captured pose in order — the camera tracks your movement cycle.",
+      keyframes: segment.exercise
+        ? BUILTIN_KEYFRAMES[segment.exercise]
+        : ((segment.customExercise?.keyframes as unknown as StickFrame[] | null) ??
+          undefined),
+      timeLimitSeconds: segment.timeLimitSeconds,
+      restAfterSeconds: segment.restAfterSeconds,
+    };
+    if (isHold) {
+      return {
+        ...base,
+        holdSpec: segment.exercise
+          ? { kind: "builtin" as const, exercise: segment.exercise }
+          : {
+              kind: "custom" as const,
+              pose: (segment.customExercise!.poses as unknown as PoseSignature[])[0],
+            },
+        holdSeconds: segment.holdSeconds!,
+      };
+    }
     return {
+      ...base,
       counterSpec: segment.exercise
         ? { kind: "builtin" as const, exercise: segment.exercise }
         : {
@@ -38,18 +67,7 @@ export default async function ChallengeAttemptPage({
             poses: segment.customExercise!.poses as unknown as PoseSignature[],
             minCycleMs: segment.customExercise!.minCycleMs,
           },
-      label: info.label,
-      emoji: info.emoji,
-      description: segment.exercise
-        ? EXERCISES[segment.exercise].description
-        : "Hit each captured pose in order — the camera tracks your movement cycle.",
-      keyframes: segment.exercise
-        ? BUILTIN_KEYFRAMES[segment.exercise]
-        : ((segment.customExercise?.keyframes as unknown as StickFrame[] | null) ??
-          undefined),
-      targetReps: segment.targetReps,
-      timeLimitSeconds: segment.timeLimitSeconds,
-      restAfterSeconds: segment.restAfterSeconds,
+      targetReps: segment.targetReps ?? undefined,
     };
   });
 

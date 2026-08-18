@@ -215,8 +215,8 @@ function FeaturedCard({
       <p className="mt-1 line-clamp-2 font-semibold leading-snug">{challenge.title}</p>
       <p className="mt-1 text-xs text-foreground/50">
         {summary.count > 1
-          ? `${summary.count} exercises · ${summary.totalReps} reps`
-          : `${summary.totalReps} reps · ${formatDuration(summary.totalSeconds)}`}
+          ? `${summary.count} exercises · ${summary.targetLabel}`
+          : `${summary.targetLabel} · ${formatDuration(summary.totalSeconds)}`}
         {done && " · ✓ done"}
       </p>
     </Link>
@@ -268,8 +268,8 @@ function CardList({
                 </span>
                 <span className="mt-0.5 block text-xs text-foreground/50">
                   {summary.count > 1
-                    ? `${summary.count} exercises · ${summary.totalReps} reps`
-                    : `${summary.totalReps} reps in ${formatDuration(summary.totalSeconds)}`}{" "}
+                    ? `${summary.count} exercises · ${summary.targetLabel}`
+                    : `${summary.targetLabel} in ${formatDuration(summary.totalSeconds)}`}{" "}
                   · by {challenge.createdBy.displayName ?? "unknown"} ·{" "}
                   {weekly !== undefined
                     ? `${weekly} this week`

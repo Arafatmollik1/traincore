@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { challengeSummary, segmentExerciseInfo } from "@/lib/exercises";
+import { challengeSummary, segmentExerciseInfo, segmentTarget } from "@/lib/exercises";
 import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import { badgeSpriteUrl } from "@/lib/badges";
@@ -88,7 +88,7 @@ export default async function PublicChallengePage({
                   <span>{info.emoji}</span>
                   <span className="min-w-0 flex-1 truncate">{info.label}</span>
                   <span className="text-xs text-foreground/50">
-                    {segment.targetReps} reps
+                    {segmentTarget(segment)}
                   </span>
                 </li>
               );
@@ -98,8 +98,16 @@ export default async function PublicChallengePage({
 
         <div className="mt-2 flex gap-6 text-sm">
           <div>
-            <p className="text-lg font-bold">{summary.totalReps}</p>
-            <p className="text-xs text-foreground/50">total reps</p>
+            <p className="text-lg font-bold">
+              {summary.totalReps > 0 ? summary.totalReps : `${summary.totalHoldSeconds}s`}
+            </p>
+            <p className="text-xs text-foreground/50">
+              {summary.totalReps > 0
+                ? summary.totalHoldSeconds > 0
+                  ? "reps + holds"
+                  : "total reps"
+                : "total hold"}
+            </p>
           </div>
           <div>
             <p className="text-lg font-bold">{formatDuration(summary.totalSeconds)}</p>

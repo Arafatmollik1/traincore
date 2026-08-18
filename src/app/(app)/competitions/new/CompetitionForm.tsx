@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ExerciseType } from "@prisma/client";
-import { EXERCISES, EXERCISE_TYPES } from "@/lib/exercises";
+import { EXERCISES, REP_EXERCISE_TYPES } from "@/lib/exercises";
 
 function toLocalInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -84,7 +84,7 @@ export default function CompetitionForm() {
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">Exercise</legend>
         <div className="grid grid-cols-2 gap-2">
-          {EXERCISE_TYPES.map((type) => (
+          {REP_EXERCISE_TYPES.map((type) => (
             <button
               key={type}
               type="button"

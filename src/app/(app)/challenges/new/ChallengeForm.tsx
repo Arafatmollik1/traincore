@@ -8,7 +8,12 @@ import { EXERCISES, EXERCISE_TYPES } from "@/lib/exercises";
 import { MAX_SEGMENTS } from "@/lib/limits";
 import { BADGE_SPRITES, badgeSpriteUrl } from "@/lib/badges";
 
-type CustomExerciseOption = { id: string; name: string; emoji: string };
+type CustomExerciseOption = {
+  id: string;
+  name: string;
+  emoji: string;
+  kind: "REPS" | "HOLD";
+};
 
 // Numeric fields allow "" while editing so clearing the input doesn't
 // snap to a phantom 0 (the classic "020" controlled-number-input bug).
@@ -19,6 +24,7 @@ type SegmentDraft = {
     | { kind: "builtin"; exercise: ExerciseType }
     | { kind: "custom"; id: string };
   targetReps: NumberField;
+  holdSeconds: NumberField;
   timeLimitMinutes: NumberField;
   restAfterSeconds: NumberField;
 };
@@ -30,6 +36,7 @@ function parseField(value: string): NumberField {
 const DEFAULT_SEGMENT: SegmentDraft = {
   selection: { kind: "builtin", exercise: "PUSHUP" },
   targetReps: 20,
+  holdSeconds: 30,
   timeLimitMinutes: 5,
   restAfterSeconds: 30,
 };
@@ -59,6 +66,15 @@ export default function ChallengeForm({
     );
   }
 
+  /** Whether the segment's selected exercise is rep- or hold-based. */
+  function selectionKind(segment: SegmentDraft): "REPS" | "HOLD" {
+    if (segment.selection.kind === "builtin") {
+      return EXERCISES[segment.selection.exercise].kind;
+    }
+    const id = segment.selection.id;
+    return customExercises.find((e) => e.id === id)?.kind ?? "REPS";
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitting(true);
@@ -75,7 +91,9 @@ export default function ChallengeForm({
             ...(segment.selection.kind === "builtin"
               ? { exercise: segment.selection.exercise }
               : { customExerciseId: segment.selection.id }),
-            targetReps: Number(segment.targetReps),
+            ...(selectionKind(segment) === "HOLD"
+              ? { holdSeconds: Number(segment.holdSeconds) }
+              : { targetReps: Number(segment.targetReps) }),
             timeLimitSeconds: Math.round(Number(segment.timeLimitMinutes) * 60),
             restAfterSeconds: Number(segment.restAfterSeconds),
           })),
@@ -93,6 +111,14 @@ export default function ChallengeForm({
 
   const inputClass =
     "rounded-xl border border-foreground/15 bg-background px-3 py-2.5 text-sm outline-none transition focus:border-accent";
+
+  function KindChip() {
+    return (
+      <span className="ml-auto shrink-0 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-foreground/50">
+        ⏱ hold
+      </span>
+    );
+  }
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
@@ -170,7 +196,8 @@ export default function ChallengeForm({
                   }`}
                 >
                   <span className="text-lg">{EXERCISES[type].emoji}</span>
-                  {EXERCISES[type].label}
+                  <span className="min-w-0 truncate">{EXERCISES[type].label}</span>
+                  {EXERCISES[type].kind === "HOLD" && <KindChip />}
                 </button>
               ))}
               {customExercises.map((exercise) => (
@@ -195,25 +222,44 @@ export default function ChallengeForm({
                 >
                   <span className="text-lg">{exercise.emoji}</span>
                   <span className="min-w-0 truncate">{exercise.name}</span>
+                  {exercise.kind === "HOLD" && <KindChip />}
                 </button>
               ))}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-foreground/60">Reps</span>
-                <input
-                  type="number"
-                  value={segment.targetReps}
-                  onChange={(e) =>
-                    updateSegment(index, { targetReps: parseField(e.target.value) })
-                  }
-                  min={1}
-                  max={1000}
-                  required
-                  className={inputClass}
-                />
-              </label>
+              {selectionKind(segment) === "HOLD" ? (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-foreground/60">Hold (s)</span>
+                  <input
+                    type="number"
+                    value={segment.holdSeconds}
+                    onChange={(e) =>
+                      updateSegment(index, { holdSeconds: parseField(e.target.value) })
+                    }
+                    min={5}
+                    max={600}
+                    step={5}
+                    required
+                    className={inputClass}
+                  />
+                </label>
+              ) : (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-foreground/60">Reps</span>
+                  <input
+                    type="number"
+                    value={segment.targetReps}
+                    onChange={(e) =>
+                      updateSegment(index, { targetReps: parseField(e.target.value) })
+                    }
+                    min={1}
+                    max={1000}
+                    required
+                    className={inputClass}
+                  />
+                </label>
+              )}
               <label className="flex flex-col gap-1">
                 <span className="text-xs font-medium text-foreground/60">Limit (min)</span>
                 <input
