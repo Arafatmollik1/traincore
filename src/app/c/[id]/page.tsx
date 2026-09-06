@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { challengeSummary, segmentExerciseInfo, segmentTarget } from "@/lib/exercises";
+import { completionScoreLabel, challengeSummary, segmentExerciseInfo, segmentTarget } from "@/lib/exercises";
 import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
 import { badgeSpriteUrl } from "@/lib/badges";
@@ -152,7 +152,7 @@ export default async function PublicChallengePage({
                     {completion.user.displayName ?? "unknown"}
                   </span>
                   <span className="text-xs text-foreground/50">
-                    {completion.reps} reps · {formatRelativeTime(completion.completedAt)}
+                    {completionScoreLabel(completion)} · {formatRelativeTime(completion.completedAt)}
                   </span>
                 </li>
               ))}

@@ -148,7 +148,10 @@ model ChallengeCompletion {
   id              String   @id @default(cuid())
   challengeId     String
   userId          String
+  /// Sum of rep-segment reps only (0 for hold-only challenges).
   reps            Int
+  /// Sum of hold-segment heldSeconds; null when the challenge had no holds.
+  heldSeconds     Int?
   durationSeconds Int
   completedAt     DateTime @default(now())
 

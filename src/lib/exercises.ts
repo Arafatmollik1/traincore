@@ -140,3 +140,22 @@ export function challengeSummary(segments: SummarySegment[]): {
     count: segments.length,
   };
 }
+
+/** Finisher list label: "12 reps", "45s hold", "12 reps + 45s hold", or "Completed". */
+export function completionScoreLabel(completion: {
+  reps: number;
+  heldSeconds?: number | null;
+}): string {
+  const parts: string[] = [];
+  if (completion.reps > 0) parts.push(`${completion.reps} reps`);
+  if (completion.heldSeconds != null && completion.heldSeconds > 0) {
+    const minutes = Math.floor(completion.heldSeconds / 60);
+    const seconds = completion.heldSeconds % 60;
+    parts.push(
+      minutes > 0
+        ? `${minutes}:${String(seconds).padStart(2, "0")} hold`
+        : `${seconds}s hold`,
+    );
+  }
+  return parts.join(" + ") || "Completed";
+}
