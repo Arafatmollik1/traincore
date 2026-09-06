@@ -254,7 +254,7 @@ export default async function ChallengeDetailPage({
           )}
           <p className="mt-1 font-semibold">Badge earned!</p>
           <p className="text-sm text-foreground/60">
-            You did {myCompletion.reps} reps {formatRelativeTime(myCompletion.completedAt)}.
+            You did {completionScoreLabel(myCompletion)} {formatRelativeTime(myCompletion.completedAt)}.
           </p>
           {!archived && (
             <Link
