@@ -96,7 +96,17 @@ export async function POST(
       challenge.segments.every((segment, index) =>
         segmentPassed(segment, body.segments[index]),
       );
-    const totalReps = body.segments.reduce((sum, result) => sum + result.reps, 0);
+    // Reps stay rep-only; hold time is stored separately so UI never shows "0 reps"
+    // after a successful plank/wall-sit circuit.
+    const totalReps = body.segments.reduce((sum, result, index) => {
+      if (challenge.segments[index]?.holdSeconds != null) return sum;
+      return sum + result.reps;
+    }, 0);
+    const totalHeldSeconds = body.segments.reduce((sum, result, index) => {
+      if (challenge.segments[index]?.holdSeconds == null) return sum;
+      return sum + (result.heldSeconds ?? 0);
+    }, 0);
+    const hasHoldSegments = challenge.segments.some((s) => s.holdSeconds != null);
 
     if (completed) {
       await prisma.challengeCompletion.upsert({
@@ -108,6 +118,7 @@ export async function POST(
           challengeId: id,
           userId: user.id,
           reps: totalReps,
+          heldSeconds: hasHoldSegments ? totalHeldSeconds : null,
           durationSeconds: elapsedSeconds,
         },
       });
@@ -116,6 +127,7 @@ export async function POST(
     return NextResponse.json({
       completed,
       reps: totalReps,
+      heldSeconds: hasHoldSegments ? totalHeldSeconds : null,
       targetReps: challenge.segments.reduce(
         (sum, s) => sum + (s.targetReps ?? 0),
         0,

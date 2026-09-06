@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { challengeSummary, segmentExerciseInfo, segmentTarget } from "@/lib/exercises";
+import { completionScoreLabel, challengeSummary, segmentExerciseInfo, segmentTarget } from "@/lib/exercises";
 import { MAX_ACTIVE_CHALLENGES } from "@/lib/limits";
 import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { BUILTIN_KEYFRAMES, type StickFrame } from "@/lib/stick";
@@ -254,7 +254,7 @@ export default async function ChallengeDetailPage({
           )}
           <p className="mt-1 font-semibold">Badge earned!</p>
           <p className="text-sm text-foreground/60">
-            You did {myCompletion.reps} reps {formatRelativeTime(myCompletion.completedAt)}.
+            You did {completionScoreLabel(myCompletion)} {formatRelativeTime(myCompletion.completedAt)}.
           </p>
           {!archived && (
             <Link
@@ -306,7 +306,7 @@ export default async function ChallengeDetailPage({
                   {completion.user.displayName ?? "unknown"}
                 </Link>
                 <span className="text-foreground/50">
-                  {completion.reps} reps · {formatRelativeTime(completion.completedAt)}
+                  {completionScoreLabel(completion)} · {formatRelativeTime(completion.completedAt)}
                 </span>
               </li>
             ))}
